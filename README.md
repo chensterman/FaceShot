@@ -1,10 +1,6 @@
 # FaceShot Chrome Extension
 
-A Chrome extension for screen capture and recording with real-time preview capabilities.
-
-## Project Overview
-
-FaceShot is a Chrome extension that allows users to capture their screen and process the captured frames in real-time. The extension features a simple UI with a toggle button to start and stop recording, and includes a preview window to see what's being captured.
+A Chrome extension for screen capture and image processing with real-time personalization capabilities.
 
 ## Technical Stack
 
@@ -36,41 +32,6 @@ FaceShot/
 └── vite.config.js           # Vite configuration
 ```
 
-## Key Features
-
-- **Screen Capture**: Utilizes the `navigator.mediaDevices.getDisplayMedia` API to capture the screen
-- **State Persistence**: Maintains recording state between popup sessions using Chrome's storage API
-- **Real-time Preview**: Shows a live preview of what's being captured
-- **Visual Indicators**: Adds a red border around the page when recording is active
-
-## Development Setup
-
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/FaceShot.git
-   cd FaceShot
-   ```
-
-2. Install dependencies:
-   ```
-   npm install
-   ```
-
-3. Start the development server:
-   ```
-   npm run dev
-   ```
-
-4. Build the extension:
-   ```
-   npm run build
-   ```
-
-5. Load the extension in Chrome:
-   - Open Chrome and navigate to `chrome://extensions/`
-   - Enable "Developer mode"
-   - Click "Load unpacked" and select the `dist` directory
-
 ## How Vite is Used
 
 This project uses Vite for several key advantages:
@@ -94,7 +55,3 @@ FaceShot follows the standard Chrome extension architecture with three main comp
 3. **Content Script**: Injected into web pages to capture the screen and process frames
 
 Communication between these components is handled using Chrome's messaging API.
-
-## License
-
-[MIT License](LICENSE)
