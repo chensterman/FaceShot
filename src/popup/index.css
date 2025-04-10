@@ -1,0 +1,85 @@
+/* Base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif; /* You can replace 'Poppins' with any font you prefer */
+}
+
+.window {
+  padding: 20px;
+  background-color: white;
+  width: 300px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.title {
+  margin-left: 4px;
+  font-size: 2rem;
+  color: #2c4b6a;
+}
+
+.button {
+  width: 100%;
+  padding: 12px 12px;
+  font-size: 1rem;
+  background-color: #378adc;
+  color: white;
+  border-radius: 1rem;
+  transition: background-color 0.2s;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  gap: 8px;
+}
+
+.button:hover {
+  background-color: #2c4b6a;
+}
+
+.button.recording {
+  background-color: #dc3545;
+}
+
+.button.recording:hover {
+  background-color: #c82333;
+}
+
+/* Status message styles */
+.status-message {
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  text-align: center;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.status-message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.status-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

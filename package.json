@@ -1,0 +1,29 @@
+{
+  "name": "faceshot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "vite",
+    "build": "vite build && cp -r src/background dist/background && cp -r src/content dist/content && cp src/manifest.json dist/ && cp public/icon.png dist/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chensterman/FaceShot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/chensterman/FaceShot/issues"
+  },
+  "homepage": "https://github.com/chensterman/FaceShot#readme",
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "vite": "^6.2.5"
+  }
+}
