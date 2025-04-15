@@ -25,5 +25,10 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "vite": "^6.2.5"
+  },
+  "dependencies": {
+    "@tensorflow-models/blazeface": "^0.1.0",
+    "@tensorflow/tfjs": "^4.22.0",
+    "face-api.js": "^0.22.2"
   }
 }

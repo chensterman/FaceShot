@@ -83,3 +83,19 @@ body {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* Preview styles */
+.preview-container {
+  margin-top: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.frame-preview {
+  width: 100%;
+  display: block;
+  object-fit: contain;
+  background-color: #f8f9fa;
+}

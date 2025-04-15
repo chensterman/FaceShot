@@ -3,13 +3,15 @@ console.log("👀 Content script running");
 // Variables for streaming control
 let isStreaming = false;
 let streamingInterval = null;
-const FRAME_RATE = 10; // frames per second
+const FRAME_RATE = 30; // frames per second
 
 // Variables for media capture
 let mediaStream = null;
 let videoElement = null;
 let captureCanvas = null;
 let captureContext = null;
+
+
 
 // Function to add a red border that matches the window size
 function addBorder() {
@@ -135,87 +137,27 @@ function captureVideoFrame() {
   }
 }
 
-// Function to process frame and send to model
+// Function to process frame
 async function processFrame() {
   try {
     // Capture the current frame
     const frameData = captureVideoFrame();
     if (!frameData) return;
     
-    // Send the frame to the image detection model
-    const result = await sendToImageModel(frameData);
-    
-    // Process the results
-    handleModelResults(result);
+    // Send the frame to the popup
+    chrome.runtime.sendMessage({
+      action: 'frameData',
+      data: frameData
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        // Popup might be closed, which is normal
+        // Only log in debug mode to avoid flooding the console
+        // console.debug('Error sending frame to popup:', chrome.runtime.lastError);
+      }
+    });
   } catch (error) {
     console.error('Error processing frame:', error);
   }
-}
-
-// Function to send frame to image detection model
-async function sendToImageModel(imageData) {
-  // This is where you would integrate with your specific image detection API
-  // For now, just return a placeholder result
-  console.log('Frame captured and ready for model processing');
-  return { 
-    detected: Math.random() > 0.7, // Simulate random detections
-    confidence: Math.random(),
-    timestamp: new Date().toISOString()
-  };
-}
-
-// Function to handle results from the model
-function handleModelResults(results) {
-  // Process the results from the model
-  console.log('Model results:', results);
-  
-  // Example: If something is detected, you might want to highlight it
-  if (results.detected) {
-    // You could create an overlay element to highlight the detection
-    const overlay = document.getElementById('faceshot-detection-overlay') || 
-                    createDetectionOverlay();
-    
-    // Update the overlay with detection information
-    overlay.innerHTML = `
-      <div class="detection-info">
-        Detection! Confidence: ${(results.confidence * 100).toFixed(2)}%
-        <br>Time: ${new Date().toLocaleTimeString()}
-      </div>
-    `;
-    
-    // Make the overlay visible
-    overlay.style.display = 'block';
-    
-    // Hide after a short delay
-    setTimeout(() => {
-      overlay.style.display = 'none';
-    }, 2000);
-  }
-}
-
-// Helper function to create detection overlay
-function createDetectionOverlay() {
-  const overlay = document.createElement('div');
-  overlay.id = 'faceshot-detection-overlay';
-  
-  // Style the overlay
-  Object.assign(overlay.style, {
-    position: 'fixed',
-    top: '10px',
-    right: '10px',
-    backgroundColor: 'rgba(255, 0, 0, 0.8)',
-    color: 'white',
-    padding: '10px',
-    borderRadius: '5px',
-    fontFamily: 'Arial, sans-serif',
-    fontSize: '14px',
-    zIndex: '2147483646', // One less than the border
-    display: 'none',
-    pointerEvents: 'none' // Allow clicks to pass through
-  });
-  
-  document.body.appendChild(overlay);
-  return overlay;
 }
 
 // Function to start streaming
@@ -264,10 +206,6 @@ function stopStreaming() {
   
   // Remove the border
   removeBorder();
-  
-  // Remove any detection overlays
-  const overlay = document.getElementById('faceshot-detection-overlay');
-  if (overlay) overlay.style.display = 'none';
   
   console.log('Streaming stopped');
   
