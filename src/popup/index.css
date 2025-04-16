@@ -12,7 +12,7 @@ body {
 .window {
   padding: 20px;
   background-color: white;
-  width: 300px;
+  width: 350px;
 }
 
 .header {
@@ -82,4 +82,194 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+
+
+.loading {
+  text-align: center;
+  padding: 1rem;
+  color: #666;
+  font-style: italic;
+}
+
+/* Loading and message styles */
+.loading-text {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.error-message {
+  color: #dc3545;
+}
+
+.empty-message {
+  color: #6c757d;
+  font-style: italic;
+  padding: 0 1rem;
+}
+
+.initial-message {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+  font-style: italic;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+/* Face Gallery styles */
+.face-gallery {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.face-gallery.loading,
+.face-gallery.empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 150px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.face-gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.face-gallery-header h3 {
+  font-size: 1rem;
+  color: #2c4b6a;
+  margin: 0;
+}
+
+.face-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.face-item {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.face-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.face-number {
+  padding: 6px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #2c4b6a;
+  background-color: #f8f9fa;
+  border-top: 1px solid #eee;
+}
+
+.face-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.face-gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.face-gallery-header h3 {
+  font-size: 1rem;
+  color: #2c4b6a;
+  margin: 0;
+}
+
+.clear-faces-button {
+  background-color: transparent;
+  border: 1px solid #dc3545;
+  color: #dc3545;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.clear-faces-button:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+.clear-faces-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.face-gallery-loading {
+  text-align: center;
+  padding: 1rem;
+  color: #666;
+  font-style: italic;
+}
+
+.no-faces-message {
+  text-align: center;
+  padding: 1rem;
+  color: #666;
+  font-style: italic;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.face-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.face-item {
+  padding: 0.75rem;
+  border-bottom: 1px solid #eee;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.face-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.face-id {
+  font-weight: bold;
+  color: #2c4b6a;
+}
+
+.face-count {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.face-timestamp {
+  font-size: 0.75rem;
+  color: #888;
 }
