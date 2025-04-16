@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite",
-    "build": "vite build && cp -r src/background dist/background && cp -r src/content dist/content && cp src/manifest.json dist/ && cp public/icon.png dist/"
+    "build": "node build.js"
   },
   "repository": {
     "type": "git",
@@ -22,8 +22,12 @@
   "homepage": "https://github.com/chensterman/FaceShot#readme",
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "dotenv": "^16.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "vite": "^6.2.5"
+  },
+  "dependencies": {
+    "face-api.js": "^0.22.2"
   }
 }

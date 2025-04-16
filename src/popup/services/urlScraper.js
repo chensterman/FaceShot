@@ -129,4 +129,4 @@ const batchScrape = async (data, delay = 0.1) => {
   return results;
 };
 
-export { urlScraper, batchScrape };
+export { batchScrape };

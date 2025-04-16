@@ -6,6 +6,8 @@ const FaceGallery = ({ faceImages, isLoading }) => {
   const [isResearching, setIsResearching] = useState(false);
   const [researchResults, setResearchResults] = useState([]);
   const [researchProgress, setResearchProgress] = useState({});
+  const [selectedFace, setSelectedFace] = useState(null);
+  const [detailView, setDetailView] = useState(false);
   
   const handleResearchClick = async () => {
     if (isResearching || !faceImages || faceImages.length === 0) return;
@@ -56,6 +58,102 @@ const FaceGallery = ({ faceImages, isLoading }) => {
     );
   }
 
+  // Handle clicking on a face card to show detailed view
+  const handleFaceClick = (face, index) => {
+    const faceResult = researchResults.find(result => 
+      result.imageDataUrl === face.imageUrl
+    );
+    
+    if (faceResult) {
+      setSelectedFace({
+        ...face,
+        index,
+        result: faceResult
+      });
+      setDetailView(true);
+    }
+  };
+  
+  // Handle going back to the gallery view
+  const handleBackToGallery = () => {
+    setDetailView(false);
+    setSelectedFace(null);
+  };
+  
+  // Render the detailed view for a selected face
+  if (detailView && selectedFace) {
+    const { result, index } = selectedFace;
+    return (
+      <div className="face-detail-view">
+        <div className="detail-header">
+          <button className="back-button" onClick={handleBackToGallery}>
+            ← Back to Gallery
+          </button>
+          <h3>{result.name || `Face #${index + 1}`}</h3>
+        </div>
+        
+        <div className="detail-content">
+          <div className="detail-main-image">
+            <img 
+              src={selectedFace.imageUrl} 
+              alt={`Face ${index + 1}`} 
+              className="detail-face-image"
+            />
+          </div>
+          
+          <div className="detail-info">
+            <h4>Identity Information</h4>
+            <div className="detail-name">{result.name || 'Unknown'}</div>
+            <div className="detail-description">{result.description || 'No information found'}</div>
+          </div>
+          
+          {result.sourceUrls && result.sourceUrls.length > 0 && (
+            <div className="detail-sources">
+              <h4>Sources ({result.sourceUrls.length})</h4>
+              <div className="source-list">
+                {result.sourceUrls.map((url, i) => {
+                  // Extract domain name for display
+                  let domain = '';
+                  try {
+                    domain = new URL(url).hostname;
+                  } catch (e) {
+                    domain = url;
+                  }
+                  
+                  return (
+                    <div key={i} className="source-item">
+                      <div className="source-thumbnail">
+                        {result.thumbnailUrls && result.thumbnailUrls[i] ? (
+                          <img 
+                            src={result.thumbnailUrls[i]} 
+                            alt={`Source ${i + 1}`} 
+                            className="thumbnail-image"
+                          />
+                        ) : (
+                          <div className="thumbnail-placeholder">No Image</div>
+                        )}
+                      </div>
+                      <div className="source-url">
+                        <a 
+                          href={url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                        >
+                          {domain}
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  // Render the main gallery view
   return (
     <div className="face-gallery">
       <div className="face-gallery-header">
@@ -76,7 +174,11 @@ const FaceGallery = ({ faceImages, isLoading }) => {
           const progress = researchProgress[index] || {};
           
           return (
-            <div key={index} className="face-item">
+            <div 
+              key={index} 
+              className={`face-item ${faceResult ? 'has-results clickable' : ''}`}
+              onClick={() => faceResult && handleFaceClick(face, index)}
+            >
               <img 
                 src={face.imageUrl} 
                 alt={`Face ${index + 1}`}
@@ -84,27 +186,28 @@ const FaceGallery = ({ faceImages, isLoading }) => {
               />
               <div className="face-number">Face #{index + 1}</div>
               
-              {isResearching && progress.stage && (
+              {isResearching && (
                 <div className="face-research-progress">
                   <div className="progress-bar">
                     <div 
                       className="progress-fill" 
-                      style={{ width: `${progress.progress || 0}%` }}
+                      style={{ width: `${progress?.progress || 0}%` }}
                     ></div>
                   </div>
-                  <div className="progress-text">{progress.message || 'Researching...'}</div>
+                  <div className="progress-text">
+                    {progress?.message || `Researching... ${progress?.progress || 0}%`}
+                  </div>
                 </div>
               )}
               
               {faceResult && (
                 <div className="face-research-result">
-                  <div className="result-name">{faceResult.name || 'Unknown'}</div>
-                  <div className="result-description">{faceResult.description || 'No information found'}</div>
-                  {faceResult.sourceUrls && faceResult.sourceUrls.length > 0 && (
-                    <div className="result-sources">
-                      <span>Sources: {faceResult.sourceUrls.length}</span>
-                    </div>
-                  )}
+                  <button className="view-details-button" onClick={(e) => {
+                    e.stopPropagation();
+                    handleFaceClick(face, index);
+                  }}>
+                    View Research Results
+                  </button>
                 </div>
               )}
             </div>

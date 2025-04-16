@@ -276,4 +276,4 @@ const imgToUrls = async (imageDataUrl) => {
   }
 };
 
-export { loginToPimeyes, checkPremiumTokenStatus, uploadImage, searchFaces, getSearchResults, imgToUrls };
+export { imgToUrls };

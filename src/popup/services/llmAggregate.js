@@ -98,85 +98,32 @@ const aggregatePersonInfo = async (scrapedResults) => {
   }
 };
 
-/**
- * Process multiple sets of scraped results, each potentially about a different person
- * 
- * @param {Array} batchResults - Array of arrays of scraped results
- * @returns {Promise<Array>} - Array of objects with structured information about each person
- */
-const analyzeMultiplePeople = async (batchResults) => {
-  const results = [];
+// /**
+//  * Process multiple sets of scraped results, each potentially about a different person
+//  * 
+//  * @param {Array} batchResults - Array of arrays of scraped results
+//  * @returns {Promise<Array>} - Array of objects with structured information about each person
+//  */
+// const analyzeMultiplePeople = async (batchResults) => {
+//   const results = [];
   
-  for (let i = 0; i < batchResults.length; i++) {
-    console.log(`Analyzing person ${i+1}/${batchResults.length}...`);
-    const personResults = batchResults[i];
-    const personInfo = await aggregatePersonInfo(personResults);
+//   for (let i = 0; i < batchResults.length; i++) {
+//     console.log(`Analyzing person ${i+1}/${batchResults.length}...`);
+//     const personResults = batchResults[i];
+//     const personInfo = await aggregatePersonInfo(personResults);
     
-    if (personInfo) {
-      // Add the original URLs to the result
-      const urls = personResults
-        .filter(result => result.success)
-        .map(result => result.url);
+//     if (personInfo) {
+//       // Add the original URLs to the result
+//       const urls = personResults
+//         .filter(result => result.success)
+//         .map(result => result.url);
       
-      personInfo.sourceUrls = urls;
-      results.push(personInfo);
-    }
-  }
+//       personInfo.sourceUrls = urls;
+//       results.push(personInfo);
+//     }
+//   }
   
-  return results;
-};
+//   return results;
+// };
 
-/**
- * Main function to research a face image
- * 
- * @param {string} imageDataUrl - Base64 encoded image data URL
- * @returns {Promise<Object>} - Object containing information about the person
- */
-const researchFace = async (imageDataUrl) => {
-  try {
-    // Import the required modules
-    const { imgToUrls } = await import('./pimeyesApi.js');
-    const { batchScrape } = await import('./urlScraper.js');
-    
-    // Step 1: Find URLs where the face appears using PimEyes
-    console.log('Searching for face in PimEyes...');
-    const searchResults = await imgToUrls(imageDataUrl);
-    
-    if (!searchResults || !searchResults.length) {
-      console.log('No search results found.');
-      return { success: false, error: 'No matching faces found online' };
-    }
-    
-    // Step 2: Scrape content from the URLs
-    console.log('Scraping content from URLs...');
-    const scrapedResults = await batchScrape(searchResults);
-    
-    if (!scrapedResults || !scrapedResults.length) {
-      console.log('No content scraped from URLs.');
-      return { success: false, error: 'Failed to scrape content from URLs' };
-    }
-    
-    // Step 3: Analyze the scraped content to extract information about the person
-    console.log('Analyzing scraped content...');
-    const personInfo = await aggregatePersonInfo(scrapedResults);
-    
-    if (!personInfo) {
-      console.log('Failed to extract information about the person.');
-      return { success: false, error: 'Failed to extract information about the person' };
-    }
-    
-    // Add the original URLs to the result
-    const urls = scrapedResults
-      .filter(result => result.success)
-      .map(result => result.url);
-    
-    personInfo.sourceUrls = urls;
-    
-    return { success: true, personInfo };
-  } catch (error) {
-    console.error(`Error in researchFace: ${error.message}`);
-    return { success: false, error: error.message };
-  }
-};
-
-export { aggregatePersonInfo, analyzeMultiplePeople, researchFace };
+export { aggregatePersonInfo };

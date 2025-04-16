@@ -3,9 +3,39 @@
  * Provides functionality to research faces using PimEyes, URL scraping, and LLM aggregation
  */
 
-import { imgToUrls } from './pimeyesApi';
-import { batchScrape } from './urlScraper';
-import { aggregatePersonInfo } from './llmAggregate';
+// Use the background script for API calls instead of direct imports
+// This avoids CORS issues in Chrome extensions
+
+/**
+ * Call an API through the background script to avoid CORS issues
+ * 
+ * @param {string} service - The service to call (pimeyes, openai, scraper)
+ * @param {string} method - The method to call on the service
+ * @param {Object} params - Parameters for the method
+ * @returns {Promise<any>} - The response from the API
+ */
+const callBackgroundApi = async (service, method, params) => {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      {
+        action: 'apiRequest',
+        data: { service, method, params }
+      },
+      response => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        
+        if (response && response.success) {
+          resolve(response.data);
+        } else {
+          reject(new Error(response?.error || 'Unknown error'));
+        }
+      }
+    );
+  });
+};
 
 /**
  * Process an image through the complete pipeline:
@@ -23,14 +53,48 @@ import { aggregatePersonInfo } from './llmAggregate';
 const processImage = async (imageDataUrl, options = {}) => {
   const { delay = 0.1, verbose = false, onProgress = null } = options;
   
+  // Define the stages and their relative weights in the overall process
+  const stages = {
+    pimeyes: { weight: 0.3, name: 'Finding matches' },
+    scraping: { weight: 0.3, name: 'Analyzing sources' },
+    aggregating: { weight: 0.4, name: 'Identifying person' }
+  };
+  
+  // Function to calculate overall progress
+  const updateProgress = (stageName, stageProgress, message) => {
+    if (!onProgress) return;
+    
+    // Find the current stage
+    const currentStage = stages[stageName];
+    if (!currentStage) return;
+    
+    // Calculate the starting percentage for this stage
+    let startPercent = 0;
+    for (const stage in stages) {
+      if (stage === stageName) break;
+      startPercent += stages[stage].weight * 100;
+    }
+    
+    // Calculate the overall progress
+    const overallProgress = startPercent + (currentStage.weight * stageProgress);
+    
+    // Send the progress update
+    onProgress({ 
+      stage: stageName, 
+      progress: Math.min(Math.round(overallProgress), 100),
+      message: message || `${currentStage.name}...`
+    });
+  };
+  
   try {
-    // Update progress
-    if (onProgress) onProgress({ stage: 'pimeyes', progress: 0, message: 'Starting PimEyes search...' });
+    // Update progress for starting the process
+    updateProgress('pimeyes', 0, 'Starting PimEyes search...');
     
     // Step 1: Get URLs from PimEyes using the image
     if (verbose) console.log(`\n=== Processing image ===`);
     
-    const pimeyesResults = await imgToUrls(imageDataUrl);
+    // Use the background script to make the API call
+    const pimeyesResults = await callBackgroundApi('pimeyes', 'searchByImage', { imageDataUrl });
     
     if (!pimeyesResults || pimeyesResults.length === 0) {
       console.error("Error: Failed to get results from PimEyes.");
@@ -38,16 +102,23 @@ const processImage = async (imageDataUrl, options = {}) => {
     }
     
     // Update progress
-    if (onProgress) onProgress({ stage: 'pimeyes', progress: 100, message: 'PimEyes search completed' });
-    if (onProgress) onProgress({ stage: 'scraping', progress: 0, message: 'Starting URL scraping...' });
+    updateProgress('pimeyes', 100, 'PimEyes search completed');
+    updateProgress('scraping', 0, 'Starting URL scraping...');
     
-    // Extract URLs from PimEyes results
+    // Extract URLs and thumbnails from PimEyes results
     const urls = [];
+    const thumbnailUrls = [];
     try {
       for (const result of pimeyesResults) {
         const url = result.sourceUrl;
         if (url && !urls.includes(url)) {
           urls.push(url);
+          // Also extract thumbnail URL if available
+          if (result.thumbnailUrl) {
+            thumbnailUrls.push(result.thumbnailUrl);
+          } else {
+            thumbnailUrls.push(null); // Keep arrays aligned
+          }
         }
       }
       
@@ -73,7 +144,11 @@ const processImage = async (imageDataUrl, options = {}) => {
     // Step 2: Scrape content from the URLs
     if (verbose) console.log(`\n=== Scraping ${urls.length} URLs ===`);
     
-    const scrapedResults = await batchScrape(pimeyesResults, delay);
+    // Use the background script to scrape URLs
+    const scrapedResults = await callBackgroundApi('scraper', 'scrapeUrls', { 
+      urls: urls,
+      delay: delay 
+    });
     
     const successfulScrapes = scrapedResults.filter(result => result.success);
     if (verbose) {
@@ -81,8 +156,8 @@ const processImage = async (imageDataUrl, options = {}) => {
     }
     
     // Update progress
-    if (onProgress) onProgress({ stage: 'scraping', progress: 100, message: 'URL scraping completed' });
-    if (onProgress) onProgress({ stage: 'aggregating', progress: 0, message: 'Aggregating person information...' });
+    updateProgress('scraping', 100, 'URL scraping completed');
+    updateProgress('aggregating', 0, 'Aggregating person information...');
     
     if (successfulScrapes.length === 0) {
       console.log("No successful URL scrapes.");
@@ -92,18 +167,22 @@ const processImage = async (imageDataUrl, options = {}) => {
     // Step 3: Aggregate person information from scraped content
     if (verbose) console.log("\n=== Aggregating person information ===");
     
-    const personInfo = await aggregatePersonInfo(successfulScrapes);
+    // Use the background script to call OpenAI
+    const personInfo = await callBackgroundApi('aggregator', 'aggregatePersonInfo', { 
+      successfulScrapes
+    });
     
     // Update progress
-    if (onProgress) onProgress({ stage: 'aggregating', progress: 100, message: 'Person information aggregated' });
+    updateProgress('aggregating', 100, 'Person information aggregated');
     
     if (!personInfo) {
       console.log("Failed to aggregate person information.");
       return null;
     }
     
-    // Add the original URLs to the result
-    personInfo.sourceUrls = successfulScrapes.map(result => result.url);
+    // Add the original URLs and thumbnails to the result
+    personInfo.sourceUrls = urls;
+    personInfo.thumbnailUrls = thumbnailUrls;
     personInfo.imageDataUrl = imageDataUrl;
     
     return personInfo;
@@ -151,4 +230,4 @@ const processMultipleFaces = async (faceImages, options = {}) => {
   }
 };
 
-export { processImage, processMultipleFaces };
+export { processMultipleFaces };
