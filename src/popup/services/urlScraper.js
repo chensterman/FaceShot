@@ -7,6 +7,60 @@
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * Firecrawl API client for enhanced web scraping
+ * Requires an API key from Firecrawl (https://firecrawl.dev)
+ */
+class FirecrawlClient {
+  /**
+   * Initialize the Firecrawl client
+   * @param {string} apiKey - Your Firecrawl API key
+   */
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+    this.baseUrl = 'https://api.firecrawl.dev/v1';
+  }
+
+  /**
+   * Scrape a URL using the Firecrawl API
+   * @param {string} url - The URL to scrape
+   * @param {Object} params - Additional parameters for the API
+   * @returns {Promise<Object>} - The scraped content
+   */
+  async scrapeUrl(url, params = {}) {
+    try {
+      const defaultParams = {
+        formats: ['markdown'],
+        excludeTags: ['img', 'picture', 'svg', 'canvas', 'figure', 'iframe', 'video', 'audio', 'source', 'track']
+      };
+
+      const requestParams = { ...defaultParams, ...params };
+      
+      const response = await fetch(`${this.baseUrl}/scrape`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          url,
+          ...requestParams
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Firecrawl API error: ${errorData.message || response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(`Firecrawl scraping error: ${error.message}`);
+      throw error;
+    }
+  }
+}
+
+/**
  * Scrape the content of a URL and convert it to markdown format
  * 
  * @param {string} url - The URL to scrape
@@ -64,8 +118,41 @@ const urlScraper = async (url, delay = 0.1, minContentLength = 50) => {
     
     // Check if content is too short
     if (content.length < minContentLength) {
-      console.log("Content too short, consider using an external API service");
-      // In production, you would integrate with a service like Firecrawl here
+      console.log("Content too short, attempting to use Firecrawl API");
+      
+      // Get API key from Chrome storage or environment
+      // For Chrome extension, you would typically store this in chrome.storage.local
+      // For this example, we'll check if it's available in the window object or environment
+      const apiKey = window.FIRECRAWL_API_KEY || process.env.FIRECRAWL_API_KEY;
+      
+      if (apiKey) {
+        try {
+          // Initialize Firecrawl client
+          const firecrawlClient = new FirecrawlClient(apiKey);
+          
+          // Call Firecrawl API
+          const firecrawlResponse = await firecrawlClient.scrapeUrl(url, {
+            formats: ['markdown'],
+            excludeTags: ['img', 'picture', 'svg', 'canvas', 'figure', 'iframe', 'video', 'audio', 'source', 'track']
+          });
+          
+          // Check if we got markdown content back
+          if (firecrawlResponse.markdown) {
+            const firecrawlContent = firecrawlResponse.markdown;
+            
+            // Use Firecrawl content if it's longer than what we extracted
+            if (firecrawlContent.length > content.length) {
+              console.log("Using enhanced content from Firecrawl API");
+              return { success: true, content: firecrawlContent, title };
+            }
+          }
+        } catch (firecrawlError) {
+          console.error(`Error using Firecrawl API: ${firecrawlError.message}`);
+          // Continue with original content if Firecrawl fails
+        }
+      } else {
+        console.warn("Firecrawl API key not found. Set FIRECRAWL_API_KEY in environment or storage.");
+      }
     }
     
     return { success: true, content, title };
@@ -129,4 +216,4 @@ const batchScrape = async (data, delay = 0.1) => {
   return results;
 };
 
-export { batchScrape };
+export { batchScrape, urlScraper, FirecrawlClient };

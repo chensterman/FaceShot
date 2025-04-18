@@ -98,7 +98,11 @@ const processImage = async (imageDataUrl, options = {}) => {
     
     if (!pimeyesResults || pimeyesResults.length === 0) {
       console.error("Error: Failed to get results from PimEyes.");
-      return null;
+      return {
+        error: true,
+        errorType: 'pimeyes_no_results',
+        errorMessage: 'No matches found for this face'
+      };
     }
     
     // Update progress
@@ -110,14 +114,17 @@ const processImage = async (imageDataUrl, options = {}) => {
     const thumbnailUrls = [];
     try {
       for (const result of pimeyesResults) {
-        const url = result.sourceUrl;
-        if (url && !urls.includes(url)) {
-          urls.push(url);
-          // Also extract thumbnail URL if available
-          if (result.thumbnailUrl) {
-            thumbnailUrls.push(result.thumbnailUrl);
-          } else {
-            thumbnailUrls.push(null); // Keep arrays aligned
+        // Only include results with quality > 0.8
+        if (result.quality && result.quality > 0.8) {
+          const url = result.sourceUrl;
+          if (url && !urls.includes(url)) {
+            urls.push(url);
+            // Also extract thumbnail URL if available
+            if (result.thumbnailUrl) {
+              thumbnailUrls.push(result.thumbnailUrl);
+            } else {
+              thumbnailUrls.push(null); // Keep arrays aligned
+            }
           }
         }
       }
@@ -133,12 +140,21 @@ const processImage = async (imageDataUrl, options = {}) => {
       }
     } catch (error) {
       console.error(`Error extracting URLs from PimEyes results: ${error.message}`);
-      return null;
+      return {
+        error: true,
+        errorType: 'url_extraction_failed',
+        errorMessage: 'Failed to process search results',
+        details: error.message
+      };
     }
     
     if (urls.length === 0) {
       console.log("No URLs found in PimEyes results.");
-      return null;
+      return {
+        error: true,
+        errorType: 'no_urls_found',
+        errorMessage: 'No source websites found for this face'
+      };
     }
     
     // Step 2: Scrape content from the URLs
@@ -161,7 +177,12 @@ const processImage = async (imageDataUrl, options = {}) => {
     
     if (successfulScrapes.length === 0) {
       console.log("No successful URL scrapes.");
-      return null;
+      return {
+        error: true,
+        errorType: 'scraping_failed',
+        errorMessage: 'Unable to analyze any websites',
+        urls: urls
+      };
     }
     
     // Step 3: Aggregate person information from scraped content
@@ -177,7 +198,14 @@ const processImage = async (imageDataUrl, options = {}) => {
     
     if (!personInfo) {
       console.log("Failed to aggregate person information.");
-      return null;
+      return {
+        error: true,
+        errorType: 'aggregation_failed',
+        errorMessage: 'Unable to identify this person',
+        sourceUrls: urls,
+        thumbnailUrls: thumbnailUrls,
+        imageDataUrl: imageDataUrl
+      };
     }
     
     // Add the original URLs and thumbnails to the result
@@ -188,7 +216,13 @@ const processImage = async (imageDataUrl, options = {}) => {
     return personInfo;
   } catch (error) {
     console.error(`Error in processImage: ${error.message}`);
-    return null;
+    return {
+      error: true,
+      errorType: 'processing_failed',
+      errorMessage: 'Face processing failed',
+      details: error.message,
+      imageDataUrl: imageDataUrl
+    };
   }
 };
 
@@ -222,12 +256,13 @@ const processMultipleFaces = async (faceImages, options = {}) => {
     // Process all faces concurrently
     const results = await Promise.all(promises);
     
-    // Filter out null results
-    return results.filter(result => result !== null);
+    // Don't filter out error results, just return all results
+    // This way, error information will be displayed on the FaceCards
+    return results;
   } catch (error) {
     console.error(`Error in processMultipleFaces: ${error.message}`);
     return [];
   }
 };
 
-export { processMultipleFaces };
+export { processMultipleFaces, processImage };

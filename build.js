@@ -45,13 +45,16 @@ fs.writeFileSync(backgroundPath, backgroundContent);
 // Inject environment variables into asset files
 console.log('Injecting environment variables into asset files...');
 
-// Process pimeyesApi.js
-const pimeyesApiPath = path.join(__dirname, 'dist', 'assets', 'pimeyesApi.js');
-if (fs.existsSync(pimeyesApiPath)) {
-  let pimeyesApiContent = fs.readFileSync(pimeyesApiPath, 'utf8');
-  pimeyesApiContent = pimeyesApiContent.replace('__VITE_PIMEYES_EMAIL__', process.env.VITE_PIMEYES_EMAIL || '');
-  pimeyesApiContent = pimeyesApiContent.replace('__VITE_PIMEYES_PASSWORD__', process.env.VITE_PIMEYES_PASSWORD || '');
-  fs.writeFileSync(pimeyesApiPath, pimeyesApiContent);
+// Process faceSearch.js
+const faceSearchPath = path.join(__dirname, 'dist', 'assets', 'faceSearch.js');
+if (fs.existsSync(faceSearchPath)) {
+  let faceSearchContent = fs.readFileSync(faceSearchPath, 'utf8');
+  // Keep PimEyes credentials for backward compatibility
+  faceSearchContent = faceSearchContent.replace('__VITE_PIMEYES_EMAIL__', process.env.VITE_PIMEYES_EMAIL || '');
+  faceSearchContent = faceSearchContent.replace('__VITE_PIMEYES_PASSWORD__', process.env.VITE_PIMEYES_PASSWORD || '');
+  // Add FaceCheck API key
+  faceSearchContent = faceSearchContent.replace('__VITE_FACECHECK_API_KEY__', process.env.VITE_FACECHECK_API_KEY || '');
+  fs.writeFileSync(faceSearchPath, faceSearchContent);
 }
 
 // Process llmAggregate.js

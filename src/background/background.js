@@ -1,7 +1,7 @@
 // We need to use importScripts instead of ES modules for service workers
 // This will be replaced with the actual paths during build
 self.importScripts(
-    '/assets/pimeyesApi.js',
+    '/assets/faceSearch.js',  // Changed from pimeyesApi.js to match the actual file name
     '/assets/urlScraper.js',
     '/assets/llmAggregate.js'
 );
@@ -72,22 +72,23 @@ const handleApiRequest = async (data, sendResponse) => {
 };
 
 /**
- * Handle PimEyes API requests
+ * Handle face search API requests
  * 
  * @param {string} method - The method to call
  * @param {Object} params - Parameters for the method
- * @returns {Promise<any>} - The response from PimEyes
+ * @returns {Promise<any>} - The response from the face search API
  */
 const handlePimEyesRequest = async (method, params) => {
-    console.log(`Handling PimEyes request: ${method}`);
+    console.log(`Handling face search request: ${method}`);
     
     // Use the globally available function from importScripts
     switch (method) {
         case 'searchByImage':
-            // Use the actual PimEyes search implementation
+            // Use the combined search function that runs both APIs concurrently
+            console.log('Using combined face search (PimEyes + FaceCheck)...');
             return await self.pimeyesApi.imgToUrls(params.imageDataUrl);
         default:
-            throw new Error(`Unknown PimEyes method: ${method}`);
+            throw new Error(`Unknown face search method: ${method}`);
     }
 };
 

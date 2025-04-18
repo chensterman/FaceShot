@@ -1,0 +1,60 @@
+.button-group {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 15px 0;
+  width: 100%;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.button.capture {
+  background-color: #4285f4;
+  color: white;
+}
+
+.button.capture:hover {
+  background-color: #3367d6;
+}
+
+.button.retake {
+  background-color: #f1f3f4;
+  color: #3c4043;
+}
+
+.button.retake:hover {
+  background-color: #e8eaed;
+}
+
+.button.research {
+  background-color: #4285f4;
+  color: white;
+}
+
+.button.research:hover {
+  background-color: #3367d6;
+}
+
+.button.processing, .button.researching {
+  background-color: #e8eaed;
+  color: #5f6368;
+  cursor: not-allowed;
+}
+
+.button-icon {
+  width: 16px;
+  height: 16px;
+}
