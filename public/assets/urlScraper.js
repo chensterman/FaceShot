@@ -82,6 +82,7 @@ self.urlScraper = {};
     
     /**
      * Scrape multiple URLs and convert them to markdown format
+     * Limited to a maximum of 5 URLs and excludes major social media sites
      */
     self.urlScraper.batchScrape = async (urls, delay = 0.1) => {
       console.log('URL Scraper: Scraping URLs...', urls);
@@ -89,8 +90,41 @@ self.urlScraper = {};
       try {
         const results = [];
         
+        // List of social media domains to exclude
+        const socialMediaDomains = [
+          'linkedin.com', 'instagram.com', 'twitter.com', 'x.com',
+          'tiktok.com', 'facebook.com', 'fb.com', 'youtube.com',
+          'pinterest.com', 'reddit.com', 'snapchat.com', 'tumblr.com',
+          'threads.net', 'whatsapp.com', 'telegram.org', 'discord.com',
+          'medium.com', 'quora.com', 'flickr.com', 'vimeo.com'
+        ];
+        
+        // Filter out social media URLs
+        const filteredUrls = urls.filter(item => {
+          const sourceUrl = typeof item === 'string' ? item : (item.sourceUrl || '');
+          if (!sourceUrl) return false;
+          
+          try {
+            const urlObj = new URL(sourceUrl);
+            const domain = urlObj.hostname.toLowerCase();
+            
+            // Check if the domain or any of its parts match social media domains
+            return !socialMediaDomains.some(socialDomain => 
+              domain === socialDomain || domain.endsWith('.' + socialDomain)
+            );
+          } catch (e) {
+            return false; // Invalid URL
+          }
+        });
+        
+        console.log(`Filtered ${urls.length - filteredUrls.length} social media URLs`);
+        
+        // Limit to maximum 5 URLs
+        const limitedUrls = filteredUrls.slice(0, 5);
+        console.log(`Processing ${limitedUrls.length} URLs (max 5)`);
+        
         // Process each URL
-        for (const item of urls) {
+        for (const item of limitedUrls) {
           // Handle both string URLs and objects with sourceUrl property
           const sourceUrl = typeof item === 'string' ? item : (item.sourceUrl || '');
           

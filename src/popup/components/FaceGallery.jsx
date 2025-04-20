@@ -101,20 +101,53 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
     const loadSavedResults = async () => {
       try {
         // Get saved face images and research results from Chrome storage
-        chrome.storage.local.get(['savedFaceImages', 'savedResearchResults'], (result) => {
+        // Also check for previous research results that might have been preserved
+        chrome.storage.local.get([
+          'savedFaceImages', 
+          'savedResearchResults', 
+          'previousFaceImages', 
+          'previousResearchResults'
+        ], (result) => {
           const savedFaceImages = result.savedFaceImages || [];
           const savedResearchResults = result.savedResearchResults || [];
+          const previousFaceImages = result.previousFaceImages || [];
+          const previousResearchResults = result.previousResearchResults || [];
           
           // Check if the current face images match the saved ones
           const currentFaceUrls = faceImages.map(face => face.imageUrl);
           const savedFaceUrls = savedFaceImages.map(face => face.imageUrl);
           
-          // Only restore results if the face images match
+          // First try to restore current research results if they match
           if (currentFaceUrls.length > 0 && 
               currentFaceUrls.length === savedFaceUrls.length && 
               currentFaceUrls.every((url, i) => url === savedFaceUrls[i])) {
             console.log('Restoring saved research results');
             setResearchResults(savedResearchResults);
+            return;
+          }
+          
+          // If no current match, try to match with previous research results
+          if (previousResearchResults.length > 0 && previousFaceImages.length > 0) {
+            const previousFaceUrls = previousFaceImages.map(face => face.imageUrl);
+            
+            // Check if any of the current faces match previous faces
+            const matchedResults = [];
+            
+            currentFaceUrls.forEach(currentUrl => {
+              // Find the index of this URL in the previous faces
+              const prevIndex = previousFaceUrls.findIndex(prevUrl => prevUrl === currentUrl);
+              
+              // If found, get the corresponding research result
+              if (prevIndex !== -1 && previousResearchResults[prevIndex]) {
+                matchedResults.push(previousResearchResults[prevIndex]);
+                console.log(`Restored research result for face with URL ${currentUrl.substring(0, 30)}...`);
+              }
+            });
+            
+            if (matchedResults.length > 0) {
+              console.log(`Restored ${matchedResults.length} research results from previous session`);
+              setResearchResults(matchedResults);
+            }
           }
         });
       } catch (error) {
@@ -131,12 +164,25 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
       if (isResearching || !faceImages || faceImages.length === 0) return Promise.resolve();
       
       setIsResearching(true);
-      setResearchResults([]);
+      // Don't clear existing research results immediately
+      // This allows us to keep existing results while researching new faces
+      // setResearchResults([]);
       setResearchProgress({});
       
       try {
-        // Process all faces concurrently
-        const results = await processMultipleFaces(faceImages, {
+        // Get the list of faces that haven't been researched yet
+        const existingResultUrls = researchResults.map(result => result.imageDataUrl);
+        const facesToResearch = faceImages.filter(face => 
+          !existingResultUrls.includes(face.imageUrl)
+        );
+        
+        console.log(`Researching ${facesToResearch.length} new faces out of ${faceImages.length} total faces`);
+        
+        // Process only the new faces if there are any, otherwise process all faces
+        const facesToProcess = facesToResearch.length > 0 ? facesToResearch : faceImages;
+        
+        // Process faces concurrently
+        const newResults = await processMultipleFaces(facesToProcess, {
           verbose: true,
           onProgress: (progress) => {
             setResearchProgress(prev => ({
@@ -150,14 +196,33 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
           }
         });
         
-        setResearchResults(results);
-        console.log('Research results:', results);
+        // Combine existing results with new ones
+        let combinedResults = [...researchResults];
+        
+        // Add new results
+        newResults.forEach(newResult => {
+          // Check if this result already exists (by imageDataUrl)
+          const existingIndex = combinedResults.findIndex(r => r.imageDataUrl === newResult.imageDataUrl);
+          if (existingIndex !== -1) {
+            // Replace the existing result
+            combinedResults[existingIndex] = newResult;
+          } else {
+            // Add the new result
+            combinedResults.push(newResult);
+          }
+        });
+        
+        setResearchResults(combinedResults);
+        console.log('Research results updated:', combinedResults);
         
         // Save results to Chrome storage
         try {
           chrome.storage.local.set({
             savedFaceImages: faceImages,
-            savedResearchResults: results
+            savedResearchResults: combinedResults,
+            // Also update the previous results to ensure they're preserved
+            previousFaceImages: faceImages,
+            previousResearchResults: combinedResults
           });
           console.log('Research results saved to storage');
         } catch (error) {

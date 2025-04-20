@@ -29,12 +29,24 @@ const useScreenshotCapture = () => {
       setIsProcessing(true);
       setError(null);
       
-      // Clear saved research results when capturing a new screenshot
+      // Store previous research results before clearing them
+      let previousResearchResults = [];
+      let previousFaceImages = [];
+      
       try {
-        chrome.storage.local.remove(['savedResearchResults', 'savedFaceImages']);
-        console.log('Cleared saved research results');
+        chrome.storage.local.get(['savedResearchResults', 'savedFaceImages'], (result) => {
+          if (result.savedResearchResults && result.savedFaceImages) {
+            previousResearchResults = result.savedResearchResults;
+            previousFaceImages = result.savedFaceImages;
+            console.log('Stored previous research results for potential reuse');
+          }
+          
+          // Now we can safely clear the current research results
+          chrome.storage.local.remove(['savedResearchResults', 'savedFaceImages']);
+          console.log('Cleared current research results for new capture');
+        });
       } catch (storageError) {
-        console.error('Error clearing saved research results:', storageError);
+        console.error('Error handling research results:', storageError);
       }
 
       // Capture screenshot
@@ -49,9 +61,12 @@ const useScreenshotCapture = () => {
       // Save screenshot data to Chrome storage
       try {
         chrome.storage.local.set({
-          savedScreenshotData: processedData
+          savedScreenshotData: processedData,
+          // Store the previous research results in a separate key
+          previousResearchResults: previousResearchResults,
+          previousFaceImages: previousFaceImages
         });
-        console.log('Saved screenshot data to storage');
+        console.log('Saved screenshot data and preserved previous research results');
       } catch (storageError) {
         console.error('Error saving screenshot data:', storageError);
       }
