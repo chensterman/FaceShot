@@ -29,25 +29,9 @@ const useScreenshotCapture = () => {
       setIsProcessing(true);
       setError(null);
       
-      // Store previous research results before clearing them
-      let previousResearchResults = [];
-      let previousFaceImages = [];
-      
-      try {
-        chrome.storage.local.get(['savedResearchResults', 'savedFaceImages'], (result) => {
-          if (result.savedResearchResults && result.savedFaceImages) {
-            previousResearchResults = result.savedResearchResults;
-            previousFaceImages = result.savedFaceImages;
-            console.log('Stored previous research results for potential reuse');
-          }
-          
-          // Now we can safely clear the current research results
-          chrome.storage.local.remove(['savedResearchResults', 'savedFaceImages']);
-          console.log('Cleared current research results for new capture');
-        });
-      } catch (storageError) {
-        console.error('Error handling research results:', storageError);
-      }
+      // Clear previous screenshot data but preserve researched faces
+      chrome.storage.local.remove(['savedFaceImages', 'savedResearchResults']);
+      console.log('Cleared previous screenshot data for new capture');
 
       // Capture screenshot
       const screenshotDataUrl = await captureScreenshot();
@@ -58,17 +42,16 @@ const useScreenshotCapture = () => {
       // Update state with processed data
       setScreenshotData(processedData);
       
-      // Save screenshot data to Chrome storage
+      // We don't save screenshot data or face images to storage anymore
+      // Only research results will be persisted
+      console.log('Screenshot processed - faces detected but not saved to storage');
+      
+      // Clear any saved screenshot data but keep researched faces
       try {
-        chrome.storage.local.set({
-          savedScreenshotData: processedData,
-          // Store the previous research results in a separate key
-          previousResearchResults: previousResearchResults,
-          previousFaceImages: previousFaceImages
-        });
-        console.log('Saved screenshot data and preserved previous research results');
+        chrome.storage.local.remove(['savedScreenshotData', 'savedFaceImages']);
+        // Note: We intentionally don't remove 'savedResearchedFaces' to preserve researched faces
       } catch (storageError) {
-        console.error('Error saving screenshot data:', storageError);
+        console.error('Error clearing saved screenshot data:', storageError);
       }
       
       setIsProcessing(false);

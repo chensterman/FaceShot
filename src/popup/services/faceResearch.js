@@ -53,11 +53,10 @@ const callBackgroundApi = async (service, method, params) => {
 const processImage = async (imageDataUrl, options = {}) => {
   const { delay = 0.1, verbose = false, onProgress = null } = options;
   
-  // Define the stages and their relative weights in the overall process
+  // Define the stages - only using PimEyes now, skipping scraper and aggregator
   const stages = {
-    pimeyes: { weight: 0.3, name: 'Finding matches' },
-    scraping: { weight: 0.3, name: 'Analyzing sources' },
-    aggregating: { weight: 0.4, name: 'Identifying person' }
+    pimeyes: { weight: 1.0, name: 'Finding matches' }
+    // scraping and aggregating stages removed
   };
   
   // Function to calculate overall progress
@@ -107,7 +106,6 @@ const processImage = async (imageDataUrl, options = {}) => {
     
     // Update progress
     updateProgress('pimeyes', 100, 'PimEyes search completed');
-    updateProgress('scraping', 0, 'Starting URL scraping...');
     
     // Extract URLs and thumbnails from PimEyes results
     const urls = [];
@@ -157,63 +155,22 @@ const processImage = async (imageDataUrl, options = {}) => {
       };
     }
     
-    // Step 2: Scrape content from the URLs
-    if (verbose) console.log(`\n=== Scraping ${urls.length} URLs ===`);
+    // Skip URL scraping and LLM aggregation steps
+    console.log("Skipping URL scraping and LLM aggregation steps");
     
-    // Use the background script to scrape URLs
-    const scrapedResults = await callBackgroundApi('scraper', 'scrapeUrls', { 
-      urls: urls,
-      delay: delay 
-    });
+    // Create a simplified result with just the PimEyes data
+    const simplifiedResult = {
+      name: "Unknown", // Default name since we're skipping identification
+      description: "Face detected in PimEyes database",
+      sourceUrls: urls,
+      thumbnailUrls: thumbnailUrls,
+      imageDataUrl: imageDataUrl,
+      matchCount: urls.length,
+      // Add a flag to indicate we skipped the full processing
+      simplified: true
+    };
     
-    const successfulScrapes = scrapedResults.filter(result => result.success);
-    if (verbose) {
-      console.log(`Successfully scraped ${successfulScrapes.length}/${urls.length} URLs`);
-    }
-    
-    // Update progress
-    updateProgress('scraping', 100, 'URL scraping completed');
-    updateProgress('aggregating', 0, 'Aggregating person information...');
-    
-    if (successfulScrapes.length === 0) {
-      console.log("No successful URL scrapes.");
-      return {
-        error: true,
-        errorType: 'scraping_failed',
-        errorMessage: 'Unable to analyze any websites',
-        urls: urls
-      };
-    }
-    
-    // Step 3: Aggregate person information from scraped content
-    if (verbose) console.log("\n=== Aggregating person information ===");
-    
-    // Use the background script to call OpenAI
-    const personInfo = await callBackgroundApi('aggregator', 'aggregatePersonInfo', { 
-      successfulScrapes
-    });
-    
-    // Update progress
-    updateProgress('aggregating', 100, 'Person information aggregated');
-    
-    if (!personInfo) {
-      console.log("Failed to aggregate person information.");
-      return {
-        error: true,
-        errorType: 'aggregation_failed',
-        errorMessage: 'Unable to identify this person',
-        sourceUrls: urls,
-        thumbnailUrls: thumbnailUrls,
-        imageDataUrl: imageDataUrl
-      };
-    }
-    
-    // Add the original URLs and thumbnails to the result
-    personInfo.sourceUrls = urls;
-    personInfo.thumbnailUrls = thumbnailUrls;
-    personInfo.imageDataUrl = imageDataUrl;
-    
-    return personInfo;
+    return simplifiedResult;
   } catch (error) {
     console.error(`Error in processImage: ${error.message}`);
     return {

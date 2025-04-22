@@ -304,3 +304,83 @@
 .source-url a:hover {
   text-decoration: underline;
 }
+
+/* Simplified notice styles */
+.simplified-notice {
+  margin-top: 12px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #378adc;
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.simplified-notice p {
+  margin: 4px 0;
+}
+
+/* Researched Faces Section */
+.researched-faces-section {
+  margin-top: 24px;
+  border-top: 1px solid #dee2e6;
+  padding-top: 16px;
+}
+
+.researched-faces-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+.researched-faces-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #2c4b6a;
+}
+
+.toggle-button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.researched-faces-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.researched-face {
+  position: relative;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background-color: white;
+}
+
+.researched-face:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.face-name {
+  font-size: 12px;
+  padding: 8px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-top: 1px solid #f0f0f0;
+  color: #2c4b6a;
+  font-weight: 500;
+}
