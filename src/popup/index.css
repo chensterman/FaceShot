@@ -113,10 +113,58 @@ body {
   text-align: center;
   padding: 2rem;
   color: #6c757d;
-  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* Region selector toggle */
+.region-selector-toggle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.toggle-button {
   background-color: #f8f9fa;
-  border-radius: 8px;
-  margin-top: 1rem;
+  border: 1px solid #dee2e6;
+  color: #495057;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-button:hover {
+  background-color: #e9ecef;
+  border-color: #ced4da;
+}
+
+/* Face collection progress indicator */
+.face-collection-progress {
+  padding: 10px 15px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  margin-bottom: 10px;
+}
+
+.face-collection-progress .progress-text {
+  font-size: 0.9rem;
+  color: #495057;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.face-collection-progress .progress-bar {
+  height: 6px;
+  background-color: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.face-collection-progress .progress-fill {
+  height: 100%;
+  background-color: #378adc;
+  transition: width 0.3s ease;
 }
 
 /* Face Gallery styles */
@@ -155,7 +203,7 @@ body {
 
 .face-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-top: 10px;
 }
@@ -169,6 +217,7 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
+  aspect-ratio: 1 / 1.2;
 }
 
 .face-item:hover {
@@ -187,8 +236,10 @@ body {
 
 .face-image {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
+  object-fit: cover;
+  flex: 1;
 }
 
 .face-gallery-header {

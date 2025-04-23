@@ -2,121 +2,219 @@ import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'rea
 import './researchButton.css';
 import { processMultipleFaces } from '../services/faceResearch';
 
-const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hideResearchButton = false }, ref) => {
+const FaceGallery = forwardRef((props, ref) => {
+  const { faceImages: initialFaceImages, isLoading, hideResearchButton = false, onFaceRemove } = props;
   // Track faces locally so we can remove them
   const [faceImages, setFaceImages] = useState(initialFaceImages || []);
   const [isResearching, setIsResearching] = useState(false);
-  const [researchResults, setResearchResults] = useState([]);
+  // Store a single research result for the current batch of faces
+  const [currentResearchResult, setCurrentResearchResult] = useState(null);
   const [researchProgress, setResearchProgress] = useState({});
   const [selectedFace, setSelectedFace] = useState(null);
   const [detailView, setDetailView] = useState(false);
-  const [researchedFaces, setResearchedFaces] = useState([]);
-  const [showResearchedFaces, setShowResearchedFaces] = useState(true);
+  // Store past research attempts, each containing multiple faces
+  const [researchAttempts, setResearchAttempts] = useState([]);
+  const [showResearchHistory, setShowResearchHistory] = useState(true);
   
   // Define helper functions early to avoid reference errors
-  const toggleResearchedFaces = () => {
-    setShowResearchedFaces(!showResearchedFaces);
+  const toggleResearchHistory = () => {
+    setShowResearchHistory(!showResearchHistory);
   };
   
-  // Handle clicking on a researched face
-  const handleResearchedFaceClick = (face) => {
-    console.log('Showing detail view for researched face:', face);
+  // Handle clicking on a research attempt to view details
+  const handleResearchAttemptClick = (attempt) => {
+    console.log('Showing detail view for research attempt:', attempt);
+    // Set the selected face with just the research result, not including face images
     setSelectedFace({
-      ...face.faceImage,
-      result: face.researchResult,
-      index: researchedFaces.findIndex(f => f.faceImage.imageUrl === face.faceImage.imageUrl)
+      imageUrl: null, // No face image needed
+      result: attempt.researchResult,
+      researchAttempt: attempt,
+      index: researchAttempts.findIndex(a => a.id === attempt.id)
     });
     setDetailView(true);
   };
   
-  // Handle removing a researched face
-  const handleRemoveResearchedFace = (index, e) => {
+  // Handle removing a research attempt
+  const handleRemoveResearchAttempt = (index, e) => {
     e.stopPropagation();
     
-    // Remove the face from the researched faces
-    const updatedResearchedFaces = [...researchedFaces];
-    updatedResearchedFaces.splice(index, 1);
-    setResearchedFaces(updatedResearchedFaces);
+    // Remove the research attempt
+    const updatedResearchAttempts = [...researchAttempts];
+    updatedResearchAttempts.splice(index, 1);
+    setResearchAttempts(updatedResearchAttempts);
     
     // Update storage
     chrome.storage.local.set({
-      savedResearchedFaces: updatedResearchedFaces
+      savedResearchAttempts: updatedResearchAttempts
     }, () => {
-      console.log('Removed face from researched faces');
+      console.log('Removed research attempt');
     });
   };
   
-  // Check if we have researched faces to display
-  const hasResearchedFaces = researchedFaces && researchedFaces.length > 0;
+  // Check if we have research history to display
+  const hasResearchHistory = researchAttempts && researchAttempts.length > 0;
   
   // Add some CSS for error styling and face removal
   useEffect(() => {
     const styles = document.createElement('style');
     styles.textContent = `
-      .remove-face-button {
+      .face-item .remove-face-button {
         position: absolute;
         top: 5px;
         right: 5px;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background-color: rgba(0, 0, 0, 0.5);
+        background-color: rgba(255, 0, 0, 0.7);
         color: white;
         border: none;
-        font-size: 18px;
-        line-height: 1;
-        cursor: pointer;
-        z-index: 10;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
         display: flex;
         align-items: center;
         justify-content: center;
+        cursor: pointer;
+        font-size: 14px;
+        z-index: 10;
         opacity: 0;
-        transition: opacity 0.2s ease;
-      }
-      
-      .face-item {
-        position: relative;
+        transition: opacity 0.2s;
       }
       
       .face-item:hover .remove-face-button {
         opacity: 1;
       }
       
-      .remove-face-button:hover {
-        background-color: rgba(220, 0, 0, 0.8);
-      }
-      
-      .face-error-message {
-        background-color: rgba(255, 0, 0, 0.1);
-        color: #d32f2f;
-        padding: 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        text-align: center;
-        cursor: pointer;
-      }
-      
-      .face-research-result.error {
-        background-color: rgba(255, 0, 0, 0.05);
-      }
-      
-      .detail-error {
-        background-color: rgba(255, 0, 0, 0.05);
-        padding: 16px;
-        border-radius: 8px;
-        margin-top: 16px;
-      }
-      
-      .error-message {
-        font-size: 16px;
-        color: #d32f2f;
+      .research-attempt-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
         margin-bottom: 8px;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.2s;
       }
       
-      .error-details, .error-type {
+      .research-attempt-item:hover {
+        background-color: #e9ecef;
+      }
+      
+      .attempt-info {
+        flex: 1;
+      }
+      
+      .attempt-timestamp {
+        font-size: 0.8rem;
+        color: #6c757d;
+      }
+      
+      .attempt-stats {
+        font-size: 0.9rem;
+        color: #495057;
+        font-weight: 500;
+      }
+      
+      .remove-attempt-button {
+        background-color: rgba(255, 0, 0, 0.7);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
         font-size: 14px;
-        color: #757575;
-        margin-top: 8px;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      
+      .research-attempt-item:hover .remove-attempt-button {
+        opacity: 1;
+      }
+      
+      .research-history-section {
+        margin-top: 20px;
+        border-top: 1px solid #e9ecef;
+        padding-top: 10px;
+      }
+      
+      .research-history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        padding: 5px 0;
+      }
+      
+      .research-history-header h3 {
+        font-size: 1rem;
+        margin: 0;
+        color: #495057;
+      }
+      
+      .toggle-button {
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        font-size: 1rem;
+      }
+      
+      .research-attempts-list {
+        margin-top: 10px;
+      }
+      
+      .source-item {
+        margin-bottom: 10px;
+        padding: 8px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        word-break: break-all;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      
+      .source-thumbnail {
+        flex-shrink: 0;
+        width: 60px;
+        height: 60px;
+        overflow: hidden;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+      }
+      
+      .source-thumbnail img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      .source-url {
+        flex: 1;
+      }
+      
+      .sources-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      
+      .open-all-links-button {
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 5px 10px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      
+      .open-all-links-button:hover {
+        background-color: #3a7bc8;
       }
     `;
     document.head.appendChild(styles);
@@ -127,88 +225,73 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
     };
   }, []);
   
-  // Update local faces when props change
+  // Update local state when initialFaceImages changes
   useEffect(() => {
-    if (initialFaceImages && initialFaceImages.length > 0) {
-      setFaceImages(initialFaceImages);
+    if (initialFaceImages) {
+      console.log('Updating face images in FaceGallery:', initialFaceImages.length);
+      setFaceImages(initialFaceImages || []);
     }
   }, [initialFaceImages]);
   
-  // Load saved researched faces when component mounts
+  // Load saved research attempts when component mounts
   useEffect(() => {
-    const loadSavedResearchedFaces = async () => {
+    // Helper function to ensure thumbnails are loaded for research results
+    const ensureThumbnailsLoaded = (attempts) => {
+      return attempts.map(attempt => {
+        // Make sure the research result has thumbnailUrls initialized
+        if (attempt.researchResult && 
+            attempt.researchResult.sourceUrls && 
+            (!attempt.researchResult.thumbnailUrls || 
+             attempt.researchResult.thumbnailUrls.length === 0)) {
+          
+          // Create empty thumbnails array matching the length of sourceUrls
+          attempt.researchResult.thumbnailUrls = 
+            Array(attempt.researchResult.sourceUrls.length).fill(null);
+        }
+        return attempt;
+      });
+    };
+    
+    const loadSavedResearchAttempts = async () => {
       try {
-        // Get researched faces from Chrome storage (both images and results)
-        chrome.storage.local.get(['savedResearchedFaces'], (result) => {
-          const savedResearchedFaces = result.savedResearchedFaces || [];
-          
-          if (savedResearchedFaces.length === 0) {
-            console.log('No saved researched faces found');
-            return;
-          }
-          
-          console.log(`Loaded ${savedResearchedFaces.length} saved researched faces`);
-          setResearchedFaces(savedResearchedFaces);
-          
-          // Extract just the research results for the current session
-          const savedResults = savedResearchedFaces.map(face => face.researchResult);
-          
-          // Also check if any current faces match with saved researched faces
-          if (faceImages.length > 0) {
-            const currentFaceUrls = faceImages.map(face => face.imageUrl);
-            const matchingResults = [];
+        // Get research attempts from Chrome storage
+        chrome.storage.local.get(['savedResearchAttempts'], (result) => {
+          if (result.savedResearchAttempts) {
+            console.log('Loaded saved research attempts:', result.savedResearchAttempts.length);
             
-            // For each current face, find its matching research result
-            currentFaceUrls.forEach(faceUrl => {
-              const matchingFace = savedResearchedFaces.find(face => 
-                face.faceImage.imageUrl === faceUrl
-              );
-              
-              if (matchingFace) {
-                matchingResults.push(matchingFace.researchResult);
-                console.log(`Found matching research result for current face`);
-              }
+            // Clean up research attempts by removing face images to save storage space
+            const cleanedAttempts = result.savedResearchAttempts.map(attempt => ({
+              ...attempt,
+              // Remove face images but keep the count
+              faceImages: undefined,
+              // Make sure we have a faceCount even if it was stored with images before
+              faceCount: attempt.faceCount || (attempt.faceImages ? attempt.faceImages.length : 0)
+            }));
+            
+            // Ensure all research attempts have thumbnailUrls initialized
+            const processedAttempts = ensureThumbnailsLoaded(cleanedAttempts);
+            
+            console.log(`Loaded ${processedAttempts.length} saved research attempts`);
+            setResearchAttempts(processedAttempts);
+            
+            // Save the cleaned attempts back to storage
+            chrome.storage.local.set({
+              savedResearchAttempts: processedAttempts
+            }, () => {
+              console.log('Cleaned up research attempts in storage');
             });
-            
-            if (matchingResults.length > 0) {
-              // Combine with any existing research results
-              setResearchResults(prev => [...prev, ...matchingResults]);
-            }
           }
         });
       } catch (error) {
-        console.error('Error loading saved researched faces:', error);
+        console.error('Error loading saved research attempts:', error);
       }
     };
     
-    loadSavedResearchedFaces();
+    loadSavedResearchAttempts();
   }, []);
   
-  // Update research results when faceImages change
-  useEffect(() => {
-    if (faceImages.length === 0 || researchResults.length === 0) return;
-    
-    // Match research results with current faces
-    const currentFaceUrls = faceImages.map(face => face.imageUrl);
-    const matchingResults = [];
-    
-    // For each current face, find its matching research result
-    currentFaceUrls.forEach(faceUrl => {
-      const matchingResult = researchResults.find(result => 
-        result.imageDataUrl === faceUrl
-      );
-      
-      if (matchingResult) {
-        matchingResults.push(matchingResult);
-      }
-    });
-    
-    // Only update if we found matches and the count is different
-    if (matchingResults.length > 0 && matchingResults.length !== researchResults.length) {
-      console.log(`Matched ${matchingResults.length} research results with current faces`);
-      setResearchResults(matchingResults);
-    }
-  }, [faceImages, researchResults]);
+  // No need to update research results when faceImages change anymore
+  // since we're now using a single research result for all faces
   
   // Expose the handleResearchClick method to parent components
   useImperativeHandle(ref, () => ({
@@ -216,110 +299,52 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
       if (isResearching || !faceImages || faceImages.length === 0) return Promise.resolve();
       
       setIsResearching(true);
-      // Don't clear existing research results immediately
-      // This allows us to keep existing results while researching new faces
-      // setResearchResults([]);
       setResearchProgress({});
       
       try {
-        // Get the list of faces that haven't been researched yet
-        const existingResultUrls = researchResults.map(result => result.imageDataUrl);
-        const facesToResearch = faceImages.filter(face => 
-          !existingResultUrls.includes(face.imageUrl)
-        );
+        console.log(`Researching ${faceImages.length} faces as a single research attempt`);
         
-        console.log(`Researching ${facesToResearch.length} new faces out of ${faceImages.length} total faces`);
-        
-        // Process only the new faces if there are any, otherwise process all faces
-        const facesToProcess = facesToResearch.length > 0 ? facesToResearch : faceImages;
-        
-        // Process faces concurrently
-        const newResults = await processMultipleFaces(facesToProcess, {
+        // Process all faces as a single research attempt
+        const researchResult = await processMultipleFaces(faceImages, {
           verbose: true,
           onProgress: (progress) => {
-            setResearchProgress(prev => ({
-              ...prev,
-              [progress.faceIndex]: {
-                stage: progress.stage,
-                progress: progress.progress,
-                message: progress.message
-              }
-            }));
+            setResearchProgress({
+              stage: progress.stage,
+              progress: progress.progress,
+              message: progress.message
+            });
           }
         });
         
-        // Combine existing results with new ones
-        let combinedResults = [...researchResults];
+        // Store the current research result
+        setCurrentResearchResult(researchResult);
+        console.log('Research result:', researchResult);
         
-        // Add new results
-        newResults.forEach(newResult => {
-          // Check if this result already exists (by imageDataUrl)
-          const existingIndex = combinedResults.findIndex(r => r.imageDataUrl === newResult.imageDataUrl);
-          if (existingIndex !== -1) {
-            // Replace the existing result
-            combinedResults[existingIndex] = newResult;
-          } else {
-            // Add the new result
-            combinedResults.push(newResult);
-          }
-        });
-        
-        setResearchResults(combinedResults);
-        console.log('Research results updated:', combinedResults);
-        
-        // Save both face images and research results for researched faces
-        try {
-          // Create new researched faces entries
-          const newResearchedFaces = [];
-          
-          // For each new result, find its corresponding face image
-          newResults.forEach(newResult => {
-            const matchingFace = facesToProcess.find(face => 
-              face.imageUrl === newResult.imageDataUrl
-            );
-            
-            if (matchingFace) {
-              // Create a new researched face entry
-              newResearchedFaces.push({
-                faceImage: matchingFace,
-                researchResult: newResult,
-                timestamp: new Date().toISOString()
-              });
-            }
-          });
-          
-          // Combine with existing researched faces
-          const updatedResearchedFaces = [...researchedFaces];
-          
-          // Add or update researched faces
-          newResearchedFaces.forEach(newFace => {
-            // Check if this face already exists
-            const existingIndex = updatedResearchedFaces.findIndex(
-              f => f.faceImage.imageUrl === newFace.faceImage.imageUrl
-            );
-            
-            if (existingIndex !== -1) {
-              // Replace the existing face
-              updatedResearchedFaces[existingIndex] = newFace;
-            } else {
-              // Add the new face
-              updatedResearchedFaces.push(newFace);
-            }
-          });
-          
-          // Update state
-          setResearchedFaces(updatedResearchedFaces);
-          
-          // Save to Chrome storage
-          chrome.storage.local.set({
-            savedResearchedFaces: updatedResearchedFaces
-          }, () => {
-            console.log('Researched faces saved to storage (both images and results)');
-          });
-        } catch (error) {
-          console.error('Error saving researched faces:', error);
+        // Ensure thumbnailUrls is initialized if not present
+        if (researchResult.sourceUrls && (!researchResult.thumbnailUrls || researchResult.thumbnailUrls.length === 0)) {
+          researchResult.thumbnailUrls = Array(researchResult.sourceUrls.length).fill(null);
         }
-        return Promise.resolve();
+        
+        // Create a new research attempt entry
+        const newResearchAttempt = {
+          id: researchResult.researchId || `research-${Date.now()}`,
+          researchResult: researchResult,
+          timestamp: researchResult.timestamp || new Date().toISOString(),
+          faceCount: faceImages.length
+        };
+        
+        // Add to research attempts history
+        const updatedResearchAttempts = [newResearchAttempt, ...researchAttempts];
+        setResearchAttempts(updatedResearchAttempts);
+        
+        // Save to Chrome storage
+        chrome.storage.local.set({
+          savedResearchAttempts: updatedResearchAttempts
+        }, () => {
+          console.log('Research attempt saved to storage');
+        });
+        
+        return Promise.resolve(researchResult);
       } catch (error) {
         console.error('Error researching faces:', error);
         return Promise.reject(error);
@@ -338,15 +363,11 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
   
   // Handle clicking on a face card to show detailed view
   const handleFaceClick = (face, index) => {
-    const faceResult = researchResults.find(result => 
-      result.imageDataUrl === face.imageUrl
-    );
-    
-    if (faceResult) {
+    if (currentResearchResult) {
       setSelectedFace({
         ...face,
         index,
-        result: faceResult
+        result: currentResearchResult
       });
       setDetailView(true);
     }
@@ -364,39 +385,25 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
     
     // Get the face URL before removing it
     const faceToRemove = faceImages[index];
+    if (!faceToRemove) {
+      console.error('No face found at index', index);
+      return;
+    }
+    
     const faceUrlToRemove = faceToRemove.imageUrl;
+    console.log('Removing face at index', index, 'with URL', faceUrlToRemove);
     
-    // Remove the face from the local state
-    const updatedFaces = [...faceImages];
-    updatedFaces.splice(index, 1);
-    setFaceImages(updatedFaces);
-    
-    // Remove the corresponding research result if it exists
-    const updatedResults = researchResults.filter(result => 
-      result.imageDataUrl !== faceUrlToRemove
-    );
-    setResearchResults(updatedResults);
-    
-    // Update researched faces in storage
-    try {
-      // Remove from researched faces if it exists there
-      const updatedResearchedFaces = researchedFaces.filter(face => 
-        face.faceImage.imageUrl !== faceUrlToRemove
-      );
+    // Call the onFaceRemove callback if provided (to update the face count in useScreenshotCapture)
+    if (onFaceRemove) {
+      console.log('Calling onFaceRemove with index', index);
+      onFaceRemove(index);
+    } else {
+      console.log('No onFaceRemove callback provided');
       
-      // Only update if something was actually removed
-      if (updatedResearchedFaces.length !== researchedFaces.length) {
-        setResearchedFaces(updatedResearchedFaces);
-        
-        // Update storage
-        chrome.storage.local.set({
-          savedResearchedFaces: updatedResearchedFaces
-        }, () => {
-          console.log('Updated researched faces in storage after removing face');
-        });
-      }
-    } catch (error) {
-      console.error('Error updating researched faces after removing face:', error);
+      // If no callback provided, update local state
+      const updatedFaces = [...faceImages];
+      updatedFaces.splice(index, 1);
+      setFaceImages(updatedFaces);
     }
   };
   
@@ -410,88 +417,9 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
 
   // If we're showing the detail view, render that regardless of whether there are current faces
   if (detailView && selectedFace) {
-    // This is already handled above
-    // The detailed view will be shown for both current and researched faces
-  }
-  // If no current faces but we have researched faces, show those
-  else if (!faceImages || faceImages.length === 0) {
-    return (
-      <div className="face-gallery">
-        <div className="face-gallery empty">
-          <div className="empty-message">
-            No faces detected. Try capturing another screenshot.
-          </div>
-        </div>
-        
-        {/* Always show researched faces section if available */}
-        {hasResearchedFaces && (
-          <div className="researched-faces-section">
-            <div className="researched-faces-header" onClick={toggleResearchedFaces}>
-              <h3>Researched Faces ({researchedFaces.length})</h3>
-              <button className="toggle-button">
-                {showResearchedFaces ? '▼' : '►'}
-              </button>
-            </div>
-            
-            {showResearchedFaces && (
-              <div className="face-grid researched-faces-grid">
-                {researchedFaces.map((face, index) => {
-                  const faceResult = face.researchResult;
-                  
-                  return (
-                    <div 
-                      key={`researched-${index}`} 
-                      className={`face-item researched-face ${faceResult ? 'has-results clickable' : ''}`}
-                      onClick={() => handleResearchedFaceClick(face)}
-                      style={faceResult?.error ? { borderColor: '#ffcdd2', borderWidth: '2px' } : {}}
-                    >
-                      <button 
-                        className="remove-face-button" 
-                        onClick={(e) => handleRemoveResearchedFace(index, e)}
-                        title="Remove this face"
-                      >
-                        ×
-                      </button>
-                      <img 
-                        src={face.faceImage.imageUrl} 
-                        alt={`Researched Face ${index + 1}`}
-                        className="face-image"
-                      />
-                      <div className="face-name">
-                        {faceResult.name || `Face ${index + 1}`}
-                      </div>
-                      
-                      {faceResult && (
-                        <div className={`face-research-result ${faceResult.error ? 'error' : ''}`}>
-                          {faceResult.error ? (
-                            <div className="face-error-message">
-                              ⚠️ {faceResult.errorMessage || 'Processing failed'}
-                            </div>
-                          ) : (
-                            <button className="view-details-button">
-                              View Details
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-  
-  // Render the detailed view for a selected face
-  if (detailView && selectedFace) {
-    // Get the result and index from selectedFace
-    // The structure might be different depending on whether it came from
-    // current faces or researched faces
     const result = selectedFace.result;
     const index = selectedFace.index !== undefined ? selectedFace.index : 0;
+    const researchAttempt = selectedFace.researchAttempt;
     
     // Check if the result is an error
     const isError = result && result.error;
@@ -502,17 +430,19 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
           <button className="back-button" onClick={handleBackToGallery}>
             ← Back
           </button>
-          <h3>{isError ? `Face #${index + 1}` : (result.name || `Face #${index + 1}`)}</h3>
+          <h3>Research Results</h3>
         </div>
         
         <div className="detail-content">
-          <div className="detail-main-image">
-            <img 
-              src={selectedFace.imageUrl} 
-              alt={`Face ${index + 1}`} 
-              className="detail-face-image"
-            />
-          </div>
+          {selectedFace.imageUrl && (
+            <div className="detail-main-image">
+              <img 
+                src={selectedFace.imageUrl} 
+                alt={`Face ${index + 1}`} 
+                className="detail-face-image"
+              />
+            </div>
+          )}
           
           {isError ? (
             <div className="detail-error">
@@ -528,50 +458,65 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
           ) : (
             <>
               <div className="detail-info">
-                <h4>Identity Information</h4>
-                <div className="detail-name">{result.name || 'Unknown'}</div>
-                <div className="detail-description">{result.description || 'No information found'}</div>
-                {result.simplified && (
-                  <div className="simplified-notice">
-                    <p>URL scraping and LLM aggregation were skipped.</p>
-                    <p>Found {result.matchCount || 0} potential matches.</p>
-                  </div>
-                )}
+                <h4>Research Summary</h4>
+                <div className="simplified-notice">
+                  <p>Found {result.matchCount || 0} potential matches.</p>
+                  {researchAttempt && (
+                    <p>This research included {researchAttempt.faceCount || 0} faces.</p>
+                  )}
+                  {researchAttempt && researchAttempt.timestamp && (
+                    <p>Research performed: {new Date(researchAttempt.timestamp).toLocaleString()}</p>
+                  )}
+                </div>
               </div>
               
               {result.sourceUrls && result.sourceUrls.length > 0 && (
                 <div className="detail-sources">
-                  <h4>Sources ({result.sourceUrls.length})</h4>
+                  <div className="sources-header">
+                    <h4>Sources ({result.sourceUrls.length})</h4>
+                    <button 
+                      className="open-all-links-button"
+                      onClick={() => {
+                        // Open URLs one at a time with a delay to avoid popup blocking
+                        const openUrlWithDelay = (urls, index) => {
+                          if (index >= urls.length) return;
+                          
+                          const newTab = window.open(urls[index], '_blank');
+                          console.log(`Opening URL ${index + 1}/${urls.length}: ${urls[index]}`);
+                          
+                          // If successful, continue with the next URL after a delay
+                          if (newTab) {
+                            setTimeout(() => {
+                              openUrlWithDelay(urls, index + 1);
+                            }, 300); // 300ms delay between opening tabs
+                          } else {
+                            console.error('Popup was blocked for URL:', urls[index]);
+                            alert('Please allow popups for this site to open all links');
+                          }
+                        };
+                        
+                        // Start opening URLs from the first one
+                        openUrlWithDelay(result.sourceUrls, 0);
+                      }}
+                    >
+                      Open All Links
+                    </button>
+                  </div>
                   <div className="source-list">
                     {result.sourceUrls.map((url, i) => {
-                      // Extract domain name for display
-                      let domain = '';
-                      try {
-                        domain = new URL(url).hostname;
-                      } catch (e) {
-                        domain = url;
-                      }
+                      // Get the corresponding thumbnail if available
+                      const thumbnail = result.thumbnailUrls && result.thumbnailUrls[i];
                       
                       return (
-                        <div key={i} className="source-item">
-                          <div className="source-thumbnail">
-                            {result.thumbnailUrls && result.thumbnailUrls[i] ? (
-                              <img 
-                                src={result.thumbnailUrls[i]} 
-                                alt={`Source ${i + 1}`} 
-                                className="thumbnail-image"
-                              />
-                            ) : (
-                              <div className="thumbnail-placeholder">No Image</div>
-                            )}
-                          </div>
+                        <div key={`source-${i}`} className="source-item">
+                          {thumbnail && (
+                            <div className="source-thumbnail">
+                              <img src={thumbnail} alt="Result thumbnail" />
+                            </div>
+                          )}
                           <div className="source-url">
-                            <a 
-                              href={url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                            >
-                              {domain}
+                            <a href={url} target="_blank" rel="noopener noreferrer">
+                              {url.length > 50 ? url.substring(0, 50) + '...' : url}
                             </a>
                           </div>
                         </div>
@@ -587,37 +532,80 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
     );
   }
   
-  // These functions are now defined at the top of the component to avoid reference errors
-
-  // Render the main gallery view
-  return (
-    <div className="face-gallery">
-      {/* Current session faces */}
-      <div className="face-gallery-header">
-        <h3>Detected Faces ({faceImages.length})</h3>
-        {!hideResearchButton && (
-          <button 
-            className={`research-button ${isResearching ? 'researching' : ''}`}
-            onClick={handleResearchClick}
-            disabled={isResearching}
-          >
-            {isResearching ? 'Researching...' : 'Research Faces'}
-          </button>
+  // If no current faces but we have research history, show that
+  if (!faceImages || faceImages.length === 0) {
+    return (
+      <div className="face-gallery">
+        <div className="face-gallery empty">
+          <div className="empty-message">
+            No faces detected. Try capturing another screenshot.
+          </div>
+        </div>
+        
+        {/* Always show research history section if available */}
+        {hasResearchHistory && (
+          <div className="research-history-section">
+            <div className="research-history-header" onClick={toggleResearchHistory}>
+              <h3>Research History ({researchAttempts.length})</h3>
+              <button className="toggle-button">
+                {showResearchHistory ? '▼' : '►'}
+              </button>
+            </div>
+            
+            {showResearchHistory && (
+              <div className="research-attempts-list">
+                {researchAttempts.map((attempt, index) => {
+                  const timestamp = new Date(attempt.timestamp).toLocaleString();
+                  const faceCount = attempt.faceCount || attempt.faceImages?.length || 0;
+                  const matchCount = attempt.researchResult?.matchCount || 0;
+                  
+                  return (
+                    <div 
+                      key={`attempt-${index}`} 
+                      className="research-attempt-item"
+                      onClick={() => handleResearchAttemptClick(attempt)}
+                    >
+                      <div className="attempt-info">
+                        <div className="attempt-timestamp">{timestamp}</div>
+                        <div className="attempt-stats">
+                          {faceCount} faces, {matchCount} matches
+                        </div>
+                      </div>
+                      <button 
+                        className="remove-attempt-button" 
+                        onClick={(e) => handleRemoveResearchAttempt(index, e)}
+                        title="Remove this research attempt"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
+    );
+  }
+  
+  // Default view: show the face gallery
+  return (
+    <div className="face-gallery">
+      {/* Current faces */}
+      <div className="face-gallery-header">
+        <h3>Detected Faces ({faceImages.length})</h3>
+      </div>
+      
       <div className="face-grid">
         {faceImages.map((face, index) => {
-          const faceResult = researchResults.find(result => 
-            result.imageDataUrl === face.imageUrl
-          );
-          const progress = researchProgress[index] || {};
+          const progress = researchProgress;
           
           return (
             <div 
-              key={index} 
-              className={`face-item ${faceResult ? 'has-results clickable' : ''}`}
-              onClick={() => faceResult && handleFaceClick(face, index)}
-              style={faceResult?.error ? { borderColor: '#ffcdd2', borderWidth: '2px' } : {}}
+              key={`face-${index}`} 
+              className={`face-item ${isResearching ? 'researching' : ''}`}
+              onClick={() => handleFaceClick(face, index)}
             >
               <button 
                 className="remove-face-button" 
@@ -646,82 +634,60 @@ const FaceGallery = forwardRef(({ faceImages: initialFaceImages, isLoading, hide
                   </div>
                 </div>
               )}
-              
-              {faceResult && (
-                <div className={`face-research-result ${faceResult.error ? 'error' : ''}`}>
-                  {faceResult.error ? (
-                    <div className="face-error-message" onClick={(e) => {
-                      e.stopPropagation();
-                      handleFaceClick(face, index);
-                    }}>
-                      ⚠️ {faceResult.errorMessage || 'Processing failed'}
-                    </div>
-                  ) : (
-                    <button className="view-details-button" onClick={(e) => {
-                      e.stopPropagation();
-                      handleFaceClick(face, index);
-                    }}>
-                      Results
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           );
         })}
       </div>
       
-      {/* Researched faces section */}
-      {researchedFaces.length > 0 && (
-        <div className="researched-faces-section">
-          <div className="researched-faces-header" onClick={toggleResearchedFaces}>
-            <h3>Researched Faces ({researchedFaces.length})</h3>
+      {/* Research button (if not hidden) */}
+      {!hideResearchButton && (
+        <div className="research-button-container">
+          <button 
+            className={`research-button ${isResearching ? 'researching' : ''}`}
+            onClick={handleResearchClick}
+            disabled={isResearching || faceImages.length === 0}
+          >
+            {isResearching ? 'Researching...' : 'Research Faces'}
+          </button>
+        </div>
+      )}
+      
+      {/* Research history section */}
+      {hasResearchHistory && (
+        <div className="research-history-section">
+          <div className="research-history-header" onClick={toggleResearchHistory}>
+            <h3>Research History ({researchAttempts.length})</h3>
             <button className="toggle-button">
-              {showResearchedFaces ? '▼' : '►'}
+              {showResearchHistory ? '▼' : '►'}
             </button>
           </div>
           
-          {showResearchedFaces && (
-            <div className="face-grid researched-faces-grid">
-              {researchedFaces.map((face, index) => {
-                const faceResult = face.researchResult;
+          {showResearchHistory && (
+            <div className="research-attempts-list">
+              {researchAttempts.map((attempt, index) => {
+                const timestamp = new Date(attempt.timestamp).toLocaleString();
+                const faceCount = attempt.faceCount || attempt.faceImages?.length || 0;
+                const matchCount = attempt.researchResult?.matchCount || 0;
                 
                 return (
                   <div 
-                    key={`researched-${index}`} 
-                    className={`face-item researched-face ${faceResult ? 'has-results clickable' : ''}`}
-                    onClick={() => handleResearchedFaceClick(face)}
-                    style={faceResult?.error ? { borderColor: '#ffcdd2', borderWidth: '2px' } : {}}
+                    key={`attempt-${index}`} 
+                    className="research-attempt-item"
+                    onClick={() => handleResearchAttemptClick(attempt)}
                   >
+                    <div className="attempt-info">
+                      <div className="attempt-timestamp">{timestamp}</div>
+                      <div className="attempt-stats">
+                        {matchCount} matches
+                      </div>
+                    </div>
                     <button 
-                      className="remove-face-button" 
-                      onClick={(e) => handleRemoveResearchedFace(index, e)}
-                      title="Remove this face"
+                      className="remove-attempt-button" 
+                      onClick={(e) => handleRemoveResearchAttempt(index, e)}
+                      title="Remove this research attempt"
                     >
                       ×
                     </button>
-                    <img 
-                      src={face.faceImage.imageUrl} 
-                      alt={`Researched Face ${index + 1}`}
-                      className="face-image"
-                    />
-                    <div className="face-name">
-                      {faceResult.name || `Face ${index + 1}`}
-                    </div>
-                    
-                    {faceResult && (
-                      <div className={`face-research-result ${faceResult.error ? 'error' : ''}`}>
-                        {faceResult.error ? (
-                          <div className="face-error-message">
-                            ⚠️ {faceResult.errorMessage || 'Processing failed'}
-                          </div>
-                        ) : (
-                          <button className="view-details-button">
-                            View Details
-                          </button>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}

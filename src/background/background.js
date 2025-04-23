@@ -84,9 +84,18 @@ const handlePimEyesRequest = async (method, params) => {
     // Use the globally available function from importScripts
     switch (method) {
         case 'searchByImage':
-            // Use the combined search function that runs both APIs concurrently
-            console.log('Using combined face search (PimEyes + FaceCheck)...');
-            return await self.pimeyesApi.imgToUrls(params.imageDataUrl);
+            // Check if we're processing a single image or multiple images
+            if (params.imageDataUrls) {
+                // Multiple images in a single research attempt
+                console.log(`Processing ${params.imageDataUrls.length} images in a single research attempt...`);
+                return await self.pimeyesApi.imgToUrls(params.imageDataUrls);
+            } else if (params.imageDataUrl) {
+                // Single image (backward compatibility)
+                console.log('Processing a single image...');
+                return await self.pimeyesApi.imgToUrls(params.imageDataUrl);
+            } else {
+                throw new Error('No image data provided for face search');
+            }
         default:
             throw new Error(`Unknown face search method: ${method}`);
     }

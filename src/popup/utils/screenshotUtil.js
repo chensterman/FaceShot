@@ -51,9 +51,10 @@ export const captureScreenshot = async () => {
  * Process a screenshot to detect faces and extract individual face images
  * @param {string} screenshotDataUrl - The screenshot data URL
  * @param {boolean} leftHalfOnly - Whether to process only the left half of the image
+ * @param {boolean} topLeftCornerOnly - Whether to process only the top left corner
  * @returns {Promise<Object>} A promise that resolves with the detection results and extracted face images
  */
-export const processScreenshotForFaces = async (screenshotDataUrl, leftHalfOnly = true) => {
+export const processScreenshotForFaces = async (screenshotDataUrl, leftHalfOnly = true, topLeftCornerOnly = false) => {
   try {
     // Load face detection models if not already loaded
     await loadFaceDetectionModels();
@@ -74,20 +75,26 @@ export const processScreenshotForFaces = async (screenshotDataUrl, leftHalfOnly 
     // Set canvas dimensions
     let sourceX = 0;
     let sourceWidth = img.width;
+    let sourceHeight = img.height;
     
     // If we only want the left half, adjust the width
     if (leftHalfOnly) {
       sourceWidth = Math.floor(img.width / 2);
     }
+
+    if (topLeftCornerOnly) {
+      sourceWidth = Math.floor(img.width / 2);
+      sourceHeight = Math.floor(img.height / 1.8);
+    }
     
     canvas.width = sourceWidth;
-    canvas.height = img.height;
+    canvas.height = sourceHeight;
     
-    // Draw the image (or left half) onto the canvas
+    // Draw the selected region onto the canvas
     ctx.drawImage(
       img,
-      sourceX, 0, sourceWidth, img.height, // Source rectangle
-      0, 0, canvas.width, canvas.height    // Destination rectangle
+      sourceX, 0, sourceWidth, sourceHeight, // Source rectangle
+      0, 0, canvas.width, canvas.height     // Destination rectangle
     );
     
     // Get the processed image data URL

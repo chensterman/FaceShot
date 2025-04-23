@@ -3,9 +3,7 @@
  */
 
 // Create a namespace to avoid global conflicts
-// Initialize API objects
 self.pimeyesApi = {};
-self.faceCheckApi = {};
 
 // Define all the API functions
 (async () => {
@@ -24,27 +22,42 @@ self.faceCheckApi = {};
           remember: true
         };
         
+        console.log(`Attempting to login with email: ${email.substring(0, 3)}...`);
+        
         // Make the POST request for login
         const response = await fetch(url, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
           body: JSON.stringify(payload),
           credentials: 'include' // This is important to receive and send cookies
         });
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        // Even if response is not OK, try to parse the response body for more info
+        const responseText = await response.text();
+        let data;
+        
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.log('Response is not JSON:', responseText.substring(0, 100));
+          data = { message: responseText.substring(0, 100) };
         }
         
-        const data = await response.json();
+        if (!response.ok) {
+          console.error(`Login failed with status: ${response.status}`, data);
+          throw new Error(`HTTP error! status: ${response.status}, message: ${data.message || 'Unknown error'}`);
+        }
+        
         console.log('Login successful:', data);
         
         return data;
       } catch (error) {
         console.error(`Error during login: ${error.message}`);
-        return null;
+        throw error; // Re-throw to handle in the calling function
       }
     };
 
@@ -205,313 +218,111 @@ self.faceCheckApi = {};
     };
 
     /**
-     * Main function to search for a face in an image using FaceCheck API
-     * @param {string} imageDataUrl - Base64 encoded image data URL
-     * @returns {Promise<Array>} - Array of results with score, url, and base64 image
+     * Main function to search for faces in images and get URLs where the faces appear
+     * @param {string|string[]} imageDataUrls - Single image data URL or array of image data URLs
+     * @returns {Promise<Object>} - Object with error flag and results array
      */
-    self.faceCheckApi = {
-      /**
-       * Search for a face using the FaceCheck API
-       * @param {string} imageDataUrl - Base64 encoded image data URL
-       * @param {boolean} testingMode - Whether to use testing mode (no credits deducted)
-       * @returns {Promise<Array>} - Array of results with score, url, and base64 image
-       */
-      searchByFace: async (imageDataUrl, testingMode = false) => {
+    self.pimeyesApi.imgToUrls = async (imageDataUrls) => {
+      try {
+        console.log('Starting PimEyes face search...');
+        
+        // Get email and password from environment variables
+        const email = '__VITE_PIMEYES_EMAIL__';
+        const password = '__VITE_PIMEYES_PASSWORD__';
+        
+        if (!email || !password || email === '__VITE_PIMEYES_EMAIL__' || password === '__VITE_PIMEYES_PASSWORD__') {
+          console.warn('PimEyes credentials are missing');
+          return { error: true, results: [], errorMessage: 'PimEyes credentials are missing' };
+        }
+        
+        // Login to PimEyes
+        console.log('Logging in to PimEyes...');
         try {
-          // Get API key from environment variables
-          // This will be injected by the background script
-          const apiKey = '__VITE_FACECHECK_API_KEY__';
-          
-          if (!apiKey || apiKey === '__VITE_FACECHECK_API_KEY__') {
-            console.error('FaceCheck API key is required');
-            return {
-              error: true,
-              message: 'FaceCheck API key is missing',
-              results: []
-            };
-          }
-          
-          // Extract the base64 data from the data URL
-          const base64Data = imageDataUrl.split(',')[1];
-          
-          // Step 1: Upload the image
-          console.log('Uploading image to FaceCheck...');
-          const uploadResponse = await uploadToFaceCheck(apiKey, base64Data);
-          
-          if (uploadResponse.error) {
-            console.error(`Upload error: ${uploadResponse.error} (${uploadResponse.code})`);
-            return {
-              error: true,
-              message: uploadResponse.error,
-              code: uploadResponse.code,
-              results: []
-            };
-          }
-          
-          const idSearch = uploadResponse.id_search;
-          console.log(`${uploadResponse.message} id_search=${idSearch}`);
-          
-          // Step 2: Poll for search results
-          console.log('Searching for face matches...');
-          const searchResults = await pollSearchResults(apiKey, idSearch, testingMode);
-          
-          if (searchResults.error) {
-            console.error(`Search error: ${searchResults.error} (${searchResults.code})`);
-            return {
-              error: true,
-              message: searchResults.error,
-              code: searchResults.code,
-              results: []
-            };
-          }
-          
-          // Format the results to match the expected structure
-          const formattedResults = searchResults.items.map(item => {
-            // Create a proper data URL for the thumbnail
-            // Check if the base64 string already has the data URL prefix
-            let thumbnailUrl = item.base64;
-            if (thumbnailUrl && !thumbnailUrl.startsWith('data:')) {
-              thumbnailUrl = `data:image/jpeg;base64,${item.base64}`;
-            }
-            
-            return {
-              quality: item.score / 100, // Convert score from 0-100 to 0-1
-              sourceUrl: item.url,
-              thumbnailUrl: thumbnailUrl,
-              score: item.score,
-              base64: item.base64,
-              source: 'facecheck' // Tag the source as FaceCheck
-            };
-          });
-          
-          return {
-            error: false,
-            results: formattedResults
-          };
-        } catch (error) {
-          console.error(`Error in searchByFace: ${error.message}`);
-          return {
-            error: true,
-            message: error.message,
-            results: []
-          };
-        }
-      }
-    };
-    
-    /**
-     * Upload an image to FaceCheck API
-     * @param {string} apiKey - FaceCheck API key
-     * @param {string} base64Image - Base64 encoded image data
-     * @returns {Promise<Object>} - Upload response
-     */
-    const uploadToFaceCheck = async (apiKey, base64Image) => {
-      try {
-        const site = 'https://facecheck.id';
-        const url = `${site}/api/upload_pic`;
-        
-        // Create a Blob from the base64 data
-        const byteCharacters = atob(base64Image);
-        const byteArrays = [];
-        
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteArrays.push(byteCharacters.charCodeAt(i));
+          await loginToPimeyes(email, password);
+        } catch (loginError) {
+          console.error('Login failed:', loginError.message);
+          return { error: true, results: [], errorMessage: `Login failed: ${loginError.message}` };
         }
         
-        const byteArray = new Uint8Array(byteArrays);
-        const blob = new Blob([byteArray], { type: 'image/jpeg' });
+        // Check premium token status
+        console.log('Checking premium token status...');
+        await checkPremiumTokenStatus();
         
-        // Create FormData
-        const formData = new FormData();
-        formData.append('images', blob, 'image.jpg');
+        // Handle single image or array of images
+        const images = Array.isArray(imageDataUrls) ? imageDataUrls : [imageDataUrls];
+        console.log(`Processing ${images.length} images with PimEyes...`);
         
-        // Make the POST request
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Authorization': apiKey,
-            'Accept': 'application/json'
-          },
-          body: formData
-        });
+        // Collect all face IDs from all images
+        let allFaceIds = [];
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        // Upload each image and collect face IDs
+        for (let i = 0; i < images.length; i++) {
+          const imageDataUrl = images[i];
+          console.log(`Uploading image ${i+1}/${images.length} to PimEyes...`);
+          const faceIds = await uploadImage(imageDataUrl);
+          
+          if (faceIds.length) {
+            console.log(`Found ${faceIds.length} faces in image ${i+1}`);
+            allFaceIds = [...allFaceIds, ...faceIds];
+          } else {
+            console.log(`No faces detected in image ${i+1}`);
+          }
         }
         
-        return await response.json();
+        if (!allFaceIds.length) {
+          console.log('PimEyes upload failed or no faces detected in any images.');
+          return { error: true, results: [], errorMessage: 'No faces detected in any of the images' };
+        }
+        
+        // Search for all faces at once
+        console.log(`Searching with PimEyes for ${allFaceIds.length} total faces...`);
+        const { searchHash, apiUrl } = await searchFaces(allFaceIds);
+        
+        if (!searchHash || !apiUrl) {
+          console.log('PimEyes search failed or missing required information.');
+          return { error: true, results: [], errorMessage: 'Failed to initiate search' };
+        }
+        
+        // Get search results
+        console.log('Getting PimEyes search results...');
+        const results = await getSearchResults(apiUrl, searchHash);
+        
+        if (!results) {
+          console.log('No PimEyes results object returned.');
+          return { error: true, results: [], errorMessage: 'Failed to get search results' };
+        }
+        
+        // Safely extract results array
+        let resultsList = [];
+        if (results.results && Array.isArray(results.results)) {
+          resultsList = results.results;
+          console.log(`Found ${resultsList.length} results in the results array`);
+        } else {
+          console.log('Results object does not contain a valid results array:', results);
+          // Return empty results instead of error
+          return { error: false, results: [] };
+        }
+        
+        // Add source tag to each result
+        const taggedResults = resultsList.map(result => ({
+          ...result,
+          source: 'pimeyes'
+        }));
+        
+        console.log(`Found ${taggedResults.length} results from PimEyes`);
+        
+        if (taggedResults.length === 0) {
+          console.warn('No results found from PimEyes');
+        }
+        
+        return { error: false, results: taggedResults };
       } catch (error) {
-        console.error(`Error uploading to FaceCheck: ${error.message}`);
-        return { error: error.message, code: 'UPLOAD_ERROR' };
+        console.error(`Error in PimEyes face search: ${error.message}`);
+        return { error: true, results: [], errorMessage: error.message };
       }
     };
     
-    /**
-     * Poll for search results from FaceCheck API
-     * @param {string} apiKey - FaceCheck API key
-     * @param {string} idSearch - Search ID from upload response
-     * @param {boolean} testingMode - Whether to use testing mode
-     * @returns {Promise<Object>} - Search results
-     */
-    const pollSearchResults = async (apiKey, idSearch, testingMode) => {
-      try {
-        const site = 'https://facecheck.id';
-        const url = `${site}/api/search`;
-        const maxAttempts = 60; // Maximum number of polling attempts (60 seconds)
-        let attempts = 0;
-        
-        // Prepare the request payload
-        const payload = {
-          id_search: idSearch,
-          with_progress: true,
-          status_only: false,
-          demo: testingMode
-        };
-        
-        // Poll for results
-        while (attempts < maxAttempts) {
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Authorization': apiKey,
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          
-          const data = await response.json();
-          
-          if (data.error) {
-            return { error: data.error, code: data.code };
-          }
-          
-          if (data.output) {
-            return data.output;
-          }
-          
-          console.log(`${data.message} progress: ${data.progress}%`);
-          
-          // Wait before polling again
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          attempts++;
-        }
-        
-        return { error: 'Polling timeout', code: 'TIMEOUT_ERROR' };
-      } catch (error) {
-        console.error(`Error polling FaceCheck results: ${error.message}`);
-        return { error: error.message, code: 'POLLING_ERROR' };
-      }
-    };
-    
-    /**
-     * Main function to search for a face in an image and get URLs where the face appears
-     * Combines results from both PimEyes and FaceCheck APIs
-     */
-    self.pimeyesApi.imgToUrls = async (imageDataUrl) => {
-      try {
-        console.log('Starting concurrent face searches with PimEyes and FaceCheck...');
-        
-        // Run both API searches concurrently
-        const [pimeyesPromise, faceCheckPromise] = [
-          // Original PimEyes search flow
-          (async () => {
-            try {
-              // Get email and password from environment variables
-              const email = '__VITE_PIMEYES_EMAIL__';
-              const password = '__VITE_PIMEYES_PASSWORD__';
-              
-              if (!email || !password || email === '__VITE_PIMEYES_EMAIL__' || password === '__VITE_PIMEYES_PASSWORD__') {
-                console.warn('PimEyes credentials are missing');
-                return { error: true, results: [] };
-              }
-              
-              // Login to PimEyes
-              console.log('Logging in to PimEyes...');
-              await loginToPimeyes(email, password);
-              
-              // Check premium token status
-              console.log('Checking premium token status...');
-              await checkPremiumTokenStatus();
-              
-              // Upload the image
-              console.log('Uploading image to PimEyes...');
-              const faceIds = await uploadImage(imageDataUrl);
-              
-              if (!faceIds.length) {
-                console.log('PimEyes upload failed or no faces detected.');
-                return { error: true, results: [] };
-              }
-              
-              // Search for faces
-              console.log('Searching with PimEyes...');
-              const { searchHash, apiUrl } = await searchFaces(faceIds);
-              
-              if (!searchHash || !apiUrl) {
-                console.log('PimEyes search failed or missing required information.');
-                return { error: true, results: [] };
-              }
-              
-              // Get search results
-              console.log('Getting PimEyes search results...');
-              const results = await getSearchResults(apiUrl, searchHash);
-              
-              if (!results || !results.results) {
-                console.log('No PimEyes results found.');
-                return { error: true, results: [] };
-              }
-              
-              // Add source tag to each result
-              const taggedResults = results.results.map(result => ({
-                ...result,
-                source: 'pimeyes'
-              }));
-              
-              return { error: false, results: taggedResults };
-            } catch (error) {
-              console.error(`Error in PimEyes search: ${error.message}`);
-              return { error: true, results: [] };
-            }
-          })(),
-          
-          // FaceCheck search
-          self.faceCheckApi.searchByFace(imageDataUrl, false)
-        ];
-        
-        // Wait for both searches to complete
-        const [pimeyesResult, faceCheckResult] = await Promise.allSettled([pimeyesPromise, faceCheckPromise]);
-        
-        // Extract results from each API
-        const pimeyesResults = pimeyesResult.status === 'fulfilled' && !pimeyesResult.value.error
-          ? pimeyesResult.value.results
-          : [];
-          
-        const faceCheckResults = faceCheckResult.status === 'fulfilled' && !faceCheckResult.value.error
-          ? faceCheckResult.value.results
-          : [];
-        
-        // Log result counts
-        console.log(`Found ${pimeyesResults.length} results from PimEyes and ${faceCheckResults.length} results from FaceCheck`);
-        
-        // Combine results, with FaceCheck results first (they're typically social media)
-        const combinedResults = [...faceCheckResults, ...pimeyesResults];
-        
-        if (combinedResults.length === 0) {
-          console.warn('No results found from either API');
-        }
-        
-        return combinedResults;
-      } catch (error) {
-        console.error(`Error in combined face search: ${error.message}`);
-        return [];
-      }
-    };
-    
-    console.log('Face search API services loaded successfully');
+    console.log('PimEyes API service loaded successfully');
   } catch (error) {
     console.error('Failed to load PimEyes API service:', error);
   }
